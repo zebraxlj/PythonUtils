@@ -14,15 +14,19 @@ class RowExample(BaseRow):
     """
     ColInt: int = -1
     # __ColInt_hide: Final[bool] = True
+
     ColStr: str = 'N/A'
     __ColStr_alias: Final[str] = 'EN column alias'  # test en alias display
     # __ColStr_hide: Final[bool] = True
+
     ColStrCn: str = 'N/A'
     __ColStrCn_alias: Final[str] = '中文别名'  # test cn alias display
     # __ColStrCn_hide: Final[bool] = True
+
     LastModifiedDate: datetime = field(default_factory=datetime.now)  # test datetime column display
     # __LastModifiedDate_alias: Final[str] = '最后修改日期'
     # __LastModifiedDate_hide: Final[bool] = True
+    __LastModifiedDate_format: Final[str] = '%Y-%m-%d %H:%M:%S'
 
 
 # @dataclass

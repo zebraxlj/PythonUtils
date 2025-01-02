@@ -1,6 +1,7 @@
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, List, Tuple, TypeVar
 
 
@@ -19,6 +20,8 @@ class BaseRow:
     """
     __ALIAS_PREFIX: str = None
     __ALIAS_SUFFIX: str = '_alias'
+    __FORMAT_PREFIX: str = None
+    __FORMAT_SUFFIX: str = '_format'
     __HIDE_PREFIX: str = None
     __HIDE_SUFFIX: str = '_hide'
 
@@ -36,7 +39,17 @@ class BaseRow:
     @classmethod
     def __GET_ALIAS_SUFFIX(cls):
         return cls.__ALIAS_SUFFIX
-    
+
+    @classmethod
+    def __GET_FORMAT_PREFIX(cls):
+        if cls.__FORMAT_PREFIX is None:
+            cls.__FORMAT_PREFIX = f'_{cls.__name__}__'
+        return cls.__FORMAT_PREFIX
+
+    @classmethod
+    def __GET_FORMAT_SUFFIX(cls):
+        return cls.__FORMAT_SUFFIX
+
     @classmethod
     def __GET_HIDE_PREFIX(cls):
         if cls.__HIDE_PREFIX is None:
@@ -72,6 +85,14 @@ class BaseRow:
         return f'{cls.__GET_ALIAS_PREFIX()}{col_name}{cls.__GET_ALIAS_SUFFIX()}'
 
     @classmethod
+    def _get_format_attr_name(cls, col_name: str) -> str:
+        """ 
+        Column Fromat Naming: _<RowClassName>__<ColumnAttributeName>_format, where _<RowClassName> is added by 
+        python name mangling
+        """
+        return f'{cls.__GET_FORMAT_PREFIX()}{col_name}{cls.__GET_FORMAT_SUFFIX()}'
+
+    @classmethod
     def _get_hidden_controller_attr_name(cls, col_name: str) -> str:
         """
         Column Alias Naming: _<RowClassName>__<ColumnAttributeName>_hide, where _<RowClassName> is added by 
@@ -97,7 +118,11 @@ class BaseRow:
         Returns:
             bool: True if attribute is not alias and not hidden controller
         """
-        return not cls._is_alias(attr_name) and not cls._is_hidden_controller(attr_name)
+        return (
+            not cls._is_alias(attr_name)
+            and not cls._is_format(attr_name)
+            and not cls._is_hidden_controller(attr_name)
+        )
 
     @classmethod
     def _is_col_hidden(cls, attr_name: str) -> bool:
@@ -111,6 +136,11 @@ class BaseRow:
         if not has_hidden_controller:
             return False
         return cls.__dict__.get(hidden_controller_name, False)
+
+    @classmethod
+    def _is_format(cls, attr_name: str) -> bool:
+        """ return True if given attribute name matches format attribute name pattern """
+        return attr_name.startswith(cls.__GET_FORMAT_PREFIX()) and attr_name.endswith(cls.__GET_FORMAT_SUFFIX())
 
     @classmethod
     def _is_hidden_controller(cls, attr_name: str) -> bool:
@@ -139,6 +169,26 @@ class BaseRow:
             # alias attribute is defined
             return True, alias_attr
         # alias attribute is not defined
+        return False, ''
+
+    @classmethod
+    def _try_get_format_attr(cls, attr_name: str) -> Tuple[bool, str]:
+        """ try to get the format attribute name of the given attribute name
+        Args:
+            attr_name (str): an attribute name
+        Returns:
+            Tuple[bool, str]: 
+                if format attribute is defined, return True and the format attribute name
+                if format attribute is not defined: return False and blank string
+        """
+        if not cls._is_col_data_attr(attr_name):
+            return False, ''
+
+        format_attr = cls._get_format_attr_name(attr_name)
+        if format_attr in cls.__annotations__:
+            # format attribute is defined
+            return True, format_attr
+        # format attribute is not defined
         return False, ''
 
     @classmethod
@@ -185,6 +235,24 @@ class BaseRow:
             cls.__init_class_col_attributes()
         return cls.__COL_HEADER_MAP
 
+    def get_col_value_disp(self) -> Dict[str, int]:
+        """ return the map between column attribute name and column formatted content
+        Returns:
+            Dict[str, int]: key: column_attribute_name; value: formatted column content if format is provided; otherwise, original content
+        """
+        ret = dict()
+        for attr_name in self.get_col_attr_names():
+            attr_val = self.__getattribute__(attr_name)
+            if isinstance(attr_val, datetime):
+                has_format, format_attr = self._try_get_format_attr(attr_name)
+                if has_format:
+                    format_str = self.__getattribute__(format_attr)
+                    ret[attr_name] = attr_val.strftime(format_str)
+                    continue
+
+            ret[attr_name] = self.__getattribute__(attr_name)
+        return ret
+
     def get_col_value_disp_len(self) -> Dict[str, int]:
         """return the map between column attribute name and column content display length
         Returns:
@@ -192,8 +260,9 @@ class BaseRow:
         """
         # print(f'{BaseRow.__name__}.{self.get_col_value_width.__name__}', self.__annotations__)
         ret = dict()
+        col_value_disp: dict = self.get_col_value_disp()
         for attr_name in self.get_col_attr_names():
-            ret[attr_name] = get_display_length(str(self.__getattribute__(attr_name)))
+            ret[attr_name] = get_display_length(str(col_value_disp[attr_name]))
         return ret
 
     @classmethod
@@ -284,7 +353,8 @@ class BaseTable:
     def get_table_line_str(self, row_data: TBaseRow) -> str:
         """ generate a row line of the given row_data for the output table """
         col_order = self.row_type.get_col_attr_names()
-        col_data = [row_data.__getattribute__(attr) for attr in col_order]
+        col_data_disp = row_data.get_col_value_disp()
+        col_data = [col_data_disp[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         ret = f' {self.CHAR_COL_SEP} '.join(
             f'{str(col_val):^{width-get_display_length(str(col_val))+len(str(col_val))}}' 
