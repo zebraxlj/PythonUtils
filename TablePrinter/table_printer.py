@@ -214,7 +214,7 @@ class BaseRow:
 
     @classmethod
     def get_col_attr_names(cls) -> List[str]:
-        """ return the list of all column attribute names (no alias, just attribute names) """
+        """ return the list of all column attribute names (no hidden, no alias, just attribute names) """
         if cls.__COL_ATTR_NAMES is None:
             cls.__init_class_col_attributes()
         return cls.__COL_ATTR_NAMES
@@ -238,7 +238,9 @@ class BaseRow:
     def get_col_value_disp(self) -> Dict[str, int]:
         """ return the map between column attribute name and column formatted content
         Returns:
-            Dict[str, int]: key: column_attribute_name; value: formatted column content if format is provided; otherwise, original content
+            Dict[str, int]:
+                key: column_attribute_name
+                value: formatted column content if format is provided; otherwise, original content
         """
         ret = dict()
         for attr_name in self.get_col_attr_names():
@@ -269,7 +271,9 @@ class BaseRow:
     def get_col_header_len_map(cls) -> Dict[str, int]:
         """ return the map between column attribute name and column header length
         Returns:
-            Dict[str, int]: key: column_attribute_name; value: length of column alias if defined else column_attribute_name
+            Dict[str, int]:
+                key: column_attribute_name;
+                value: length of column alias if defined else column_attribute_name
         """
         if cls.__COL_HEADER_LEN_MAP is None:
             cls.__init_class_col_attributes()
@@ -284,6 +288,13 @@ class BaseRow:
         for attr_name in self.get_col_attr_names():
             ret[attr_name] = len(str(self.__getattribute__(attr_name)))
         return ret
+
+    @classmethod
+    def is_col_attr_exist(cls, attr_name: str) -> bool:
+        return (
+            attr_name in cls.__dict__  # attr_name is defined
+            and cls._is_col_data_attr(attr_name)  # attribute with attr_name holds actual data
+        )
 
 
 TBaseRow = TypeVar('TBaseRow', bound=BaseRow)
@@ -342,9 +353,9 @@ class BaseTable:
     def get_table_header_sep_str(self) -> str:
         """ generate the header separator line for the output table """
         col_order = self.row_type.get_col_attr_names()
-        col_data = ['-' * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
+        col_data = ['=' * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
-        ret = f'-{self.CHAR_COL_SEP}-'.join(
+        ret = f'={self.CHAR_COL_SEP}='.join(
             f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}'
             for col_val, width in zip(col_data, col_disp_len)
         )
@@ -369,13 +380,27 @@ class BaseTable:
         self.row_list.append(row_data)
         self._update_col_max_disp_len(row_data=row_data)
 
-    def print_table(self):
+    def print_table(self, order_by: List[str] = None):
         # print(f'{self.__class__.__name__}.{self.to_table_str.__name__} data_len:{len(self.row_list)}')
         output_lines: List[str] = [self.get_table_header_str(), self.get_table_header_sep_str()]
-        for row_data in self.row_list:
+
+        data_to_show = self.row_list
+
+        # validate attribute names in order_by
+        order_by = [] if not order_by else order_by
+        attr_names_bad = [attr_name for attr_name in order_by if not self.row_type.is_col_attr_exist(attr_name)]
+        if attr_names_bad:
+            raise ValueError(f'Unknown attribute names in order_by: {attr_names_bad}')
+
+        # sort data if order_by is defined
+        if order_by:
+            print('order_by:', order_by)
+            data_to_show.sort(key=lambda row_data: [row_data.__getattribute__(attr_name) for attr_name in order_by])
+
+        for row_data in data_to_show:
             output_lines.append(self.get_table_line_str(row_data))
-        for l in output_lines:
-            print(l)
+        for line in output_lines:
+            print(line)
 
 
 def get_display_length(s: str) -> int:
