@@ -1,11 +1,9 @@
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
 from typing import Dict, List, Tuple, TypeVar
 
 
-@dataclass_json
 @dataclass
 class BaseRow:
     """
