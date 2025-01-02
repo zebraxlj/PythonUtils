@@ -53,7 +53,7 @@ class BaseRow:
     def __init_class_col_attributes(cls) -> None:
         cls.__COL_ATTR_NAMES = [
             attr for attr in cls.__annotations__ 
-            if not attr.startswith('__') and not cls._is_alias(attr) and not cls._is_hidden_controller(attr)
+            if not attr.startswith('__') and cls._is_col_data_attr(attr) and not cls._is_col_hidden(attr)
         ]
         cls.__COL_HEADER_DISP_LEN_MAP = dict()
         cls.__COL_HEADER_LEN_MAP = dict()
@@ -74,6 +74,14 @@ class BaseRow:
         return f'{cls.__GET_ALIAS_PREFIX()}{col_name}{cls.__GET_ALIAS_SUFFIX()}'
 
     @classmethod
+    def _get_hidden_controller_attr_name(cls, col_name: str) -> str:
+        """
+        Column Alias Naming: _<RowClassName>__<ColumnAttributeName>_hide, where _<RowClassName> is added by 
+        python name mangling
+        """
+        return f'{cls.__GET_HIDE_PREFIX()}{col_name}{cls.__GET_HIDE_SUFFIX()}'
+
+    @classmethod
     def _is_alias(cls, attr_name: str) -> bool:
         """ check if the given name is an alias field
         Args:
@@ -82,6 +90,29 @@ class BaseRow:
             bool: True if matches alias attribute name pattern
         """
         return attr_name.startswith(cls.__GET_ALIAS_PREFIX()) and attr_name.endswith(cls.__GET_ALIAS_SUFFIX())
+
+    @classmethod
+    def _is_col_data_attr(cls, attr_name: str) -> bool:
+        """ check if the given name is the attribute that holds the column value
+        Args:
+            attr_name (str): an attribute name
+        Returns:
+            bool: True if attribute is not alias and not hidden controller
+        """
+        return not cls._is_alias(attr_name) and not cls._is_hidden_controller(attr_name)
+
+    @classmethod
+    def _is_col_hidden(cls, attr_name: str) -> bool:
+        """check if the given name is an attribute that's hidden by its hidden controller
+        Returns:
+            bool: True if hidden controller exists and is set to True
+        """
+        if not cls._is_col_data_attr(attr_name):
+            return False
+        has_hidden_controller, hidden_controller_name = cls._try_get_hidden_controller(attr_name)
+        if not has_hidden_controller:
+            return False
+        return cls.__dict__.get(hidden_controller_name, False)
 
     @classmethod
     def _is_hidden_controller(cls, attr_name: str) -> bool:
@@ -98,11 +129,11 @@ class BaseRow:
             attr_name (str): an attribute name
         Returns:
             Tuple[bool, str]: 
-                if alias attribute is defined, return True and the alias attribute namem
+                if alias attribute is defined, return True and the alias attribute name
                 if alias attribute is not defined, return False and blank string
         """
-        if cls._is_alias(attr_name):
-            # given attribute itself is an alias
+        if not cls._is_col_data_attr(attr_name):
+            # given attribute doesn't hold column data
             return False, ''
 
         alias_attr = cls._get_alias_attr_name(attr_name)
@@ -110,6 +141,27 @@ class BaseRow:
             # alias attribute is defined
             return True, alias_attr
         # alias attribute is not defined
+        return False, ''
+
+    @classmethod
+    def _try_get_hidden_controller(cls, attr_name: str) -> Tuple[bool, str]:
+        """ try to get the hide controller attribute name of the given attribute name
+        Args:
+            attr_name (str): an attribute name
+        Returns:
+            Tuple[bool, str]:
+                if hide controller is defined, return True and the hide controller name
+                if hide controller is not defined, return False and blank string
+        """
+        if not cls._is_col_data_attr(attr_name):
+            # given attribute doesn't hold column data
+            return False, ''
+
+        hidden_controller_attr = cls._get_hidden_controller_attr_name(attr_name)
+        if hidden_controller_attr in cls.__annotations__:
+            # hidden controller is defined
+            return True, hidden_controller_attr
+        # hidden controller is not defined
         return False, ''
 
     @classmethod

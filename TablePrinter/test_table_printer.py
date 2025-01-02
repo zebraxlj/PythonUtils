@@ -11,11 +11,12 @@ class RowExample(BaseRow):
     2. __<ColumnName>_alias: if defined, it will be used as the alias of the column in the output; otherwise, <ColumnName> will be used
     """
     ColInt: int = -1
-    __ColInt_hide: Final[bool] = True
+    __ColInt_hide: Final[bool] = False
     ColStr: str = 'N/A'
     __ColStr_alias: Final[str] = 'EN column alias'  # test en alias display
     ColStrCn: str = 'N/A'
     __ColStrCn_alias: Final[str] = '中文别名'  # test cn alias display
+    __ColStrCn_hide: Final[bool] = True
 
 
 # @dataclass
@@ -59,4 +60,4 @@ if __name__ == '__main__':
         table.insert_row(RowExample(ColInt=4, ColStr='和最长英文一样长的中文', ColStrCn='很长很长特别长的中文'))
         table.insert_row(RowExample(ColInt=111, ColStr='带中文 text'))
         # table.insert_row(RowExample(ColInt=2, ColStr='some Text', __ColInt='new name'))
-        print(table.print_table())
+        table.print_table()
