@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Final
 
 from table_printer import BaseRow, BaseTable, get_display_length
@@ -9,14 +10,19 @@ class RowExample(BaseRow):
     """
     1. Every field is a column in the row. When define, a default value is required
     2. __<ColumnName>_alias: if defined, it will be used as the alias of the column in the output; otherwise, <ColumnName> will be used
+    3. __<ColumnName>_hide: if defined and value is set to True, column will not show up in the output.
     """
     ColInt: int = -1
-    __ColInt_hide: Final[bool] = False
+    # __ColInt_hide: Final[bool] = True
     ColStr: str = 'N/A'
     __ColStr_alias: Final[str] = 'EN column alias'  # test en alias display
+    # __ColStr_hide: Final[bool] = True
     ColStrCn: str = 'N/A'
     __ColStrCn_alias: Final[str] = '中文别名'  # test cn alias display
-    __ColStrCn_hide: Final[bool] = True
+    # __ColStrCn_hide: Final[bool] = True
+    LastModifiedDate: datetime = field(default_factory=datetime.now)  # test datetime column display
+    # __LastModifiedDate_alias: Final[str] = '最后修改日期'
+    # __LastModifiedDate_hide: Final[bool] = True
 
 
 # @dataclass

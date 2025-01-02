@@ -289,7 +289,7 @@ class BaseTable:
         col_data = [row_data.__getattribute__(attr) for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         ret = f' {self.CHAR_COL_SEP} '.join(
-            f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}' 
+            f'{str(col_val):^{width-get_display_length(str(col_val))+len(str(col_val))}}' 
             for col_val, width in zip(col_data, col_disp_len)
         )
         return ret
