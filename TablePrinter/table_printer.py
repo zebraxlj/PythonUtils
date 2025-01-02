@@ -1,3 +1,4 @@
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
@@ -24,6 +25,7 @@ class BaseRow:
     __HIDE_SUFFIX: str = '_hide'
 
     __COL_ATTR_NAMES: List[str] = None
+    __COL_HEADER_DISP_LEN_MAP: Dict[str, int] = None
     __COL_HEADER_LEN_MAP: Dict[str, int] = None
     __COL_HEADER_MAP: Dict[str, str] = None
 
@@ -53,11 +55,13 @@ class BaseRow:
             attr for attr in cls.__annotations__ 
             if not attr.startswith('__') and not cls._is_alias(attr) and not cls._is_hidden_controller(attr)
         ]
+        cls.__COL_HEADER_DISP_LEN_MAP = dict()
         cls.__COL_HEADER_LEN_MAP = dict()
         cls.__COL_HEADER_MAP = dict()
         for attr_name in cls.__COL_ATTR_NAMES:
             has_alias, alias_attr = cls._try_get_alias_attr(attr_name)
             col_header = cls.__dict__.get(alias_attr, attr_name) if has_alias else attr_name
+            cls.__COL_HEADER_DISP_LEN_MAP[attr_name] = get_display_length(col_header)
             cls.__COL_HEADER_LEN_MAP[attr_name] = len(col_header)
             cls.__COL_HEADER_MAP[attr_name] = col_header
 
@@ -116,6 +120,12 @@ class BaseRow:
         return cls.__COL_ATTR_NAMES
 
     @classmethod
+    def get_col_header_disp_len_map(cls) -> Dict[str, int]:
+        if cls.__COL_HEADER_DISP_LEN_MAP is None:
+            cls.__init_class_col_attributes()
+        return cls.__COL_HEADER_DISP_LEN_MAP
+
+    @classmethod
     def get_col_header_map(cls) -> Dict[str, str]:
         """ return the map between column attribute name and column header name
         Returns:
@@ -124,6 +134,17 @@ class BaseRow:
         if cls.__COL_HEADER_MAP is None:
             cls.__init_class_col_attributes()
         return cls.__COL_HEADER_MAP
+
+    def get_col_value_disp_len(self) -> Dict[str, int]:
+        """return the map between column attribute name and column content display length
+        Returns:
+            Dict[str, int]: key: column_attribute_name: value: column display length when cast to string type
+        """
+        # print(f'{BaseRow.__name__}.{self.get_col_value_width.__name__}', self.__annotations__)
+        ret = dict()
+        for attr_name in self.get_col_attr_names():
+            ret[attr_name] = get_display_length(str(self.__getattribute__(attr_name)))
+        return ret
 
     @classmethod
     def get_col_header_len_map(cls) -> Dict[str, int]:
@@ -134,7 +155,7 @@ class BaseRow:
         if cls.__COL_HEADER_LEN_MAP is None:
             cls.__init_class_col_attributes()
         return cls.__COL_HEADER_LEN_MAP
-    
+
     def get_col_value_len(self) -> Dict[str, int]:
         """ return the map between column attribute name and column value length
         Returns:
@@ -156,10 +177,28 @@ class BaseTable:
     CHAR_ROW_SEP: str = ''
 
     def __init__(self, *args, **kwargs):
+        self.__COL_MAX_DISP_LEN: defaultdict = defaultdict(int)
         self.__COL_MAX_LEN: defaultdict = defaultdict(int)
         for attr_name, header_width in self.row_type.get_col_header_len_map().items():
             self.__COL_MAX_LEN[attr_name] = header_width
+        for attr_name, header_disp_len in self.row_type.get_col_header_disp_len_map().items():
+            self.__COL_MAX_DISP_LEN[attr_name] = header_disp_len
         self.row_list: List[TBaseRow] = []
+
+    def _get_col_max_disp_len(self) -> Dict[str, int]:
+        """ 用于测试 self.__COL_MAX_DISP_LEN """
+        # d: BaseRow
+        # get max width for each column
+        col_max_disp_len: Dict[str, int] = defaultdict(lambda: 0)
+        for d in self.row_list:
+            for col, width in d.get_col_value_disp_len().items():
+                col_max_disp_len[col] = max(col_max_disp_len[col], width)
+        # print(f'{self.__class__.__name__}.{self.get_col_max_width.__name__} col_max_width:{col_max_width}')
+        return col_max_disp_len
+
+    def _update_col_max_disp_len(self, row_data: TBaseRow) -> None:
+        for col, disp_len in row_data.get_col_value_disp_len().items():
+            self.__COL_MAX_DISP_LEN[col] = max(self.__COL_MAX_DISP_LEN[col], disp_len)
 
     def _update_col_max_len(self, row_data: TBaseRow) -> None:
         """ update the self.__COL_MAX_LEN if any attribute in the row_data is longer than record
@@ -174,24 +213,33 @@ class BaseTable:
         # print(f'{self.__class__.__name__}.{self.get_table_header_str.__name__} row_type:{self.row_type}')
         col_order = self.row_type.get_col_attr_names()
         col_data = [self.row_type.get_col_header_map()[attr] for attr in col_order]
-        col_len = [self.__COL_MAX_LEN[attr] for attr in col_order]
-        ret = f' {self.CHAR_COL_SEP} '.join(f'{col_val:^{width}}' for col_val, width in zip(col_data, col_len))
+        col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
+        ret = f' {self.CHAR_COL_SEP} '.join(
+            f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}'
+            for col_val, width in zip(col_data, col_disp_len)
+        )
         return ret
 
     def get_table_header_sep_str(self) -> str:
         """ generate the header separator line for the output table """
         col_order = self.row_type.get_col_attr_names()
-        col_data = ['-' * self.__COL_MAX_LEN[attr] for attr in col_order]
-        col_len = [self.__COL_MAX_LEN[attr] for attr in col_order]
-        ret = f'-{self.CHAR_COL_SEP}-'.join(f'{col_val:^{width}}' for col_val, width in zip(col_data, col_len))
+        col_data = ['-' * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
+        col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
+        ret = f'-{self.CHAR_COL_SEP}-'.join(
+            f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}'
+            for col_val, width in zip(col_data, col_disp_len)
+        )
         return ret
 
     def get_table_line_str(self, row_data: TBaseRow) -> str:
         """ generate a row line of the given row_data for the output table """
         col_order = self.row_type.get_col_attr_names()
         col_data = [row_data.__getattribute__(attr) for attr in col_order]
-        col_len = [self.__COL_MAX_LEN[attr] for attr in col_order]
-        ret = f' {self.CHAR_COL_SEP} '.join(f'{col_val:^{width}}' for col_val, width in zip(col_data, col_len))
+        col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
+        ret = f' {self.CHAR_COL_SEP} '.join(
+            f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}' 
+            for col_val, width in zip(col_data, col_disp_len)
+        )
         return ret
 
     def insert_row(self, row_data: TBaseRow):
@@ -199,7 +247,7 @@ class BaseTable:
         if not isinstance(row_data, self.row_type):
             raise TypeError(f'row_data type: {type(row_data)} does not match {self.row_type}')
         self.row_list.append(row_data)
-        self._update_col_max_len(row_data)
+        self._update_col_max_disp_len(row_data=row_data)
 
     def print_table(self):
         # print(f'{self.__class__.__name__}.{self.to_table_str.__name__} data_len:{len(self.row_list)}')
@@ -208,3 +256,16 @@ class BaseTable:
             output_lines.append(self.get_table_line_str(row_data))
         for l in output_lines:
             print(l)
+
+
+def get_display_length(s: str) -> int:
+    length = 0
+    for char in s:
+        # Get the Unicode character category
+        category = unicodedata.category(char)
+        # Check for wide characters
+        if category in ('Lo'):
+            length += 2  # Wide characters take 2 spaces
+        else:
+            length += 1  # Narrow characters take 1 space
+    return length
