@@ -63,7 +63,7 @@ class BaseRow:
     @classmethod
     def __init_class_col_attributes(cls) -> None:
         cls.__COL_ATTR_NAMES = [
-            attr for attr in cls.__annotations__ 
+            attr for attr in cls.__annotations__
             if not attr.startswith('__') and cls._is_col_data_attr(attr) and not cls._is_col_hidden(attr)
         ]
         cls.__COL_HEADER_DISP_LEN_MAP = dict()
@@ -79,15 +79,15 @@ class BaseRow:
     @classmethod
     def _get_alias_attr_name(cls, col_name: str) -> str:
         """
-        Column Alias Naming: _<RowClassName>__<ColumnAttributeName>_alias, where _<RowClassName> is added by 
+        Column Alias Naming: _<RowClassName>__<ColumnAttributeName>_alias, where _<RowClassName> is added by
         python name mangling
         """
         return f'{cls.__GET_ALIAS_PREFIX()}{col_name}{cls.__GET_ALIAS_SUFFIX()}'
 
     @classmethod
     def _get_format_attr_name(cls, col_name: str) -> str:
-        """ 
-        Column Fromat Naming: _<RowClassName>__<ColumnAttributeName>_format, where _<RowClassName> is added by 
+        """
+        Column Fromat Naming: _<RowClassName>__<ColumnAttributeName>_format, where _<RowClassName> is added by
         python name mangling
         """
         return f'{cls.__GET_FORMAT_PREFIX()}{col_name}{cls.__GET_FORMAT_SUFFIX()}'
@@ -95,7 +95,7 @@ class BaseRow:
     @classmethod
     def _get_hidden_controller_attr_name(cls, col_name: str) -> str:
         """
-        Column Alias Naming: _<RowClassName>__<ColumnAttributeName>_hide, where _<RowClassName> is added by 
+        Column Alias Naming: _<RowClassName>__<ColumnAttributeName>_hide, where _<RowClassName> is added by
         python name mangling
         """
         return f'{cls.__GET_HIDE_PREFIX()}{col_name}{cls.__GET_HIDE_SUFFIX()}'
@@ -156,7 +156,7 @@ class BaseRow:
         Args:
             attr_name (str): an attribute name
         Returns:
-            Tuple[bool, str]: 
+            Tuple[bool, str]:
                 if alias attribute is defined, return True and the alias attribute name
                 if alias attribute is not defined, return False and blank string
         """
@@ -177,7 +177,7 @@ class BaseRow:
         Args:
             attr_name (str): an attribute name
         Returns:
-            Tuple[bool, str]: 
+            Tuple[bool, str]:
                 if format attribute is defined, return True and the format attribute name
                 if format attribute is not defined: return False and blank string
         """
@@ -333,7 +333,7 @@ class BaseTable:
     def _update_col_max_len(self, row_data: TBaseRow) -> None:
         """ update the self.__COL_MAX_LEN if any attribute in the row_data is longer than record
         Args:
-            row_data (TBaseRow): used to 
+            row_data (TBaseRow): used to
         """
         for col, val_len in row_data.get_col_value_len().items():
             self.__COL_MAX_LEN[col] = max(self.__COL_MAX_LEN[col], val_len)
@@ -368,7 +368,7 @@ class BaseTable:
         col_data = [col_data_disp[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         ret = f' {self.CHAR_COL_SEP} '.join(
-            f'{str(col_val):^{width-get_display_length(str(col_val))+len(str(col_val))}}' 
+            f'{str(col_val):^{width-get_display_length(str(col_val))+len(str(col_val))}}'
             for col_val, width in zip(col_data, col_disp_len)
         )
         return ret
