@@ -380,22 +380,42 @@ class BaseTable:
         self.row_list.append(row_data)
         self._update_col_max_disp_len(row_data=row_data)
 
-    def print_table(self, order_by: List[str] = None):
+    def print_table(self, order_by: List[str] = None, ascending: List[bool] = None):
         # print(f'{self.__class__.__name__}.{self.to_table_str.__name__} data_len:{len(self.row_list)}')
         output_lines: List[str] = [self.get_table_header_str(), self.get_table_header_sep_str()]
 
         data_to_show = self.row_list
 
-        # validate attribute names in order_by
         order_by = [] if not order_by else order_by
+        # default sorting order is ascending
+        ascending = [True] * len(order_by) if not ascending else ascending
+        # validate attribute names in order_by
         attr_names_bad = [attr_name for attr_name in order_by if not self.row_type.is_col_attr_exist(attr_name)]
         if attr_names_bad:
             raise ValueError(f'Unknown attribute names in order_by: {attr_names_bad}')
 
         # sort data if order_by is defined
         if order_by:
-            print('order_by:', order_by)
-            data_to_show.sort(key=lambda row_data: [row_data.__getattribute__(attr_name) for attr_name in order_by])
+            if ascending and len(order_by) != len(ascending):
+                raise ValueError('order_by and ascending should have the same length when both are passed in')
+
+            is_all_asc: bool = all(ascending)
+            is_all_desc: bool = all(not asc for asc in ascending)
+            if is_all_asc or is_all_desc:
+                # sorting order is all ascending or decending
+                data_to_show.sort(
+                    key=lambda row_data: [row_data.__getattribute__(attr_name) for attr_name in order_by],
+                    reverse=True if is_all_desc else False,
+                )
+            else:
+                # according to https://docs.python.org/3/howto/sorting.html, sort is stable.
+                # When multiple records have the same key, their original order is preserved.
+                for attr_name, asc in zip(order_by[::-1], ascending[::-1]):
+                    data_to_show = sorted(
+                        data_to_show, key=lambda row_data: row_data.__getattribute__(attr_name), reverse=not asc
+                    )
+        elif ascending:
+            raise ValueError('ascending should not be passed without order_by')
 
         for row_data in data_to_show:
             output_lines.append(self.get_table_line_str(row_data))

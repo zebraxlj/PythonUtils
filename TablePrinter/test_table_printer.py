@@ -64,6 +64,7 @@ def test_table_with_order():
     table.print_table(order_by=['Name'])  # test sort 1 str column
     table.print_table(order_by=['Salary'])  # test sort 1 int columns
     table.print_table(order_by=['Salary', 'Name'])  # test sort multiple columns
+    table.print_table(order_by=['Salary', 'Name'], ascending=[True, False])  # test sort multiple columns
 
 
 if __name__ == '__main__':
