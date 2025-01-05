@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final
@@ -25,7 +26,7 @@ class RowExample(BaseRow):
 
     LastModifiedDate: datetime = field(default_factory=datetime.now)  # test datetime column display
     # __LastModifiedDate_alias: Final[str] = '最后修改日期'
-    # __LastModifiedDate_hide: Final[bool] = True
+    __LastModifiedDate_hide: Final[bool] = True
     __LastModifiedDate_format: Final[str] = '%Y-%m-%d %H:%M:%S'
 
 
@@ -42,6 +43,9 @@ class RowEmployeeExample(BaseRow):
     __Age_alias: Final[str] = '年龄'
     Salary: int = None
     __Salary_alias: Final[str] = '工资'
+    InsertDt: datetime = field(default_factory=datetime.now)
+    __InsertDt_hide: Final[bool] = True
+    __InsertDt_format: Final[str] = '%H:%M:%S.%f'
 
 
 class TableEmployeeExample(BaseTable):
@@ -52,19 +56,28 @@ def test_table_with_order():
     print(test_table_with_order.__name__, '=' * 50)
     table = TableEmployeeExample()
     table.insert_row(RowEmployeeExample(Name='Rylee Mcdaniel', Age=21, Salary=5000))
+    time.sleep(0.1)
     table.insert_row(RowEmployeeExample(Name='Miley Ritter', Age=25, Salary=6000))
+    time.sleep(0.1)
     table.insert_row(RowEmployeeExample(Name='Zachery Wang', Age=27, Salary=7000))
+    time.sleep(0.1)
     table.insert_row(RowEmployeeExample(Name='Carina Holland', Age=22, Salary=5000))
+    time.sleep(0.1)
     table.insert_row(RowEmployeeExample(Name='Amya Thomas', Age=41, Salary=4000))
+    time.sleep(0.1)
     table.insert_row(RowEmployeeExample(Name='Sadie Hinton', Age=32, Salary=4500))
+    time.sleep(0.1)
     table.insert_row(RowEmployeeExample(Name='Santos George', Age=35, Salary=5500))
+    time.sleep(0.1)
     table.insert_row(RowEmployeeExample(Name='Nikolai Valenzue', Age=45, Salary=4900))
+    time.sleep(0.1)
     table.insert_row(RowEmployeeExample(Name='Mckenna Galloway', Age=33, Salary=5000))
     # table.print_table(order_by=['name', 'age', 'Salary'])  # test wrong order_by attribute
     table.print_table(order_by=['Name'])  # test sort 1 str column
     table.print_table(order_by=['Salary'])  # test sort 1 int columns
     table.print_table(order_by=['Salary', 'Name'])  # test sort multiple columns
     table.print_table(order_by=['Salary', 'Name'], ascending=[True, False])  # test sort multiple columns
+    table.print_table(order_by=['InsertDt'])  # test sort multiple columns
 
 
 if __name__ == '__main__':
