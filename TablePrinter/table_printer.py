@@ -292,7 +292,7 @@ class BaseRow:
     @classmethod
     def is_col_attr_exist(cls, attr_name: str) -> bool:
         return (
-            attr_name in cls.__dict__  # attr_name is defined
+            attr_name in cls.__annotations__  # attr_name is defined
             and cls._is_col_data_attr(attr_name)  # attribute with attr_name holds actual data
         )
 
