@@ -302,9 +302,11 @@ TBaseRow = TypeVar('TBaseRow', bound=BaseRow)
 
 class BaseTable:
     row_type: TBaseRow = BaseRow
-    CHAR_LN: str = ''
-    CHAR_COL_SEP: str = '|'
-    CHAR_ROW_SEP: str = ''
+    CHAR_LN: str = '\r\n'
+    CHAR_COL_SEP: str = '\u2502'
+    CHAR_ROW_SEP: str = '\u2500'
+    CHAR_HEADER_H_SEP: str = '\u2550'
+    CHAR_HEADER_V_SEP: str = '\u256a'
 
     def __init__(self, *args, **kwargs):
         self.__COL_MAX_DISP_LEN: defaultdict = defaultdict(int)
@@ -353,9 +355,9 @@ class BaseTable:
     def get_table_header_sep_str(self) -> str:
         """ generate the header separator line for the output table """
         col_order = self.row_type.get_col_attr_names()
-        col_data = ['=' * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
+        col_data = [self.CHAR_HEADER_H_SEP * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
-        ret = f'={self.CHAR_COL_SEP}='.join(
+        ret = f'{self.CHAR_HEADER_H_SEP}{self.CHAR_HEADER_V_SEP}{self.CHAR_HEADER_H_SEP}'.join(
             f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}'
             for col_val, width in zip(col_data, col_disp_len)
         )
@@ -419,8 +421,9 @@ class BaseTable:
 
         for row_data in data_to_show:
             output_lines.append(self.get_table_line_str(row_data))
-        for line in output_lines:
-            print(line)
+
+        output_str = self.CHAR_LN.join(output_lines)
+        print(output_str, '\n', sep='')
 
 
 def get_display_length(s: str) -> int:
