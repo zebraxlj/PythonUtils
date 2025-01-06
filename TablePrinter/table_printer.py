@@ -345,6 +345,64 @@ class BaseTable:
         for col, val_len in row_data.get_col_value_len().items():
             self.__COL_MAX_LEN[col] = max(self.__COL_MAX_LEN[col], val_len)
 
+    def get_sorted_rows(self, order_by: List[str], ascending: List[bool] = None) -> List[TBaseRow]:
+        """ return the sorted row list of the current table
+        Args:
+            order_by (List[str]):
+                order_by is used to sort the result-set in ascending or descending order.
+                All elements in order_by requires to be a column attribute name defined in row_type.
+                The sorting effect is equivalent to sql's order by clause.
+                Records are sorted in ascending order by default. To sort in descending order, use the ascending param.
+            ascending (List[bool], optional):
+                List of true false that marks whether the column in order_by is sorted in ascending or descending order.
+                If provided, order_by needs to be provided and having the same length.
+                If not provided, all columns will be sorted in ascending order.
+        Raises:
+            ValueError: when order_by is not defined, empty, or contain undefined attribute names
+            ValueError: when ascending is passed but having different length comparing to order_by
+            ValueError: when ascending is passed but order_by is not
+        Returns:
+            List[TBaseRow]: sorted row list
+        """
+        if not order_by:
+            raise ValueError(f'invalid order_by: {order_by}')
+
+        # validate attribute names in order_by
+        attr_names_bad = [attr_name for attr_name in order_by if not self.row_type.is_col_attr_exist(attr_name)]
+        if attr_names_bad:
+            raise ValueError(f'Unknown attribute names in order_by: {attr_names_bad}')
+
+        # default sorting order is ascending
+        ascending = [True] * len(order_by) if not ascending else ascending
+        # validate ascending length
+        if len(order_by) != len(ascending):
+            raise ValueError('order_by and ascending should have the same length when both are passed in')
+
+        ret = self.row_list
+
+        # sort data
+        if order_by:
+            is_all_asc: bool = all(ascending)
+            is_all_desc: bool = all(not asc for asc in ascending)
+            if is_all_asc or is_all_desc:
+                # sorting order is all ascending or decending
+                ret = sorted(
+                    ret,
+                    key=lambda row_data: [row_data.__getattribute__(attr_name) for attr_name in order_by],
+                    reverse=True if is_all_desc else False,
+                )
+            else:
+                # according to https://docs.python.org/3/howto/sorting.html, sort is stable.
+                # When multiple records have the same key, their original order is preserved.
+                for attr_name, asc in zip(order_by[::-1], ascending[::-1]):
+                    ret = sorted(
+                        ret, key=lambda row_data: row_data.__getattribute__(attr_name), reverse=not asc
+                    )
+        elif ascending:
+            raise ValueError('ascending should not be passed without order_by')
+
+        return ret
+
     def get_table_header_str(self) -> str:
         """ generate the header line for the output table """
         # print(f'{self.__class__.__name__}.{self.get_table_header_str.__name__} row_type:{self.row_type}')
@@ -390,55 +448,13 @@ class BaseTable:
     def print_table(self, order_by: List[str] = None, ascending: List[bool] = None):
         """print the table
         Args:
-            order_by (List[str], optional):
-                order_by is used to sort the result-set in ascending or descending order.
-                All elements in order_by requires to be a column attribute name defined in row_type.
-                The sorting effect is equivalent to sql's order by clause.
-                Records are sorted in ascending order by default. To sort in descending order, use the ascending param.
-            ascending (List[bool], optional):
-                List of true false that marks whether the column in order_by is sorted in ascending or descending order.
-                If provided, order_by needs to be provided and having the same length.
-                If not provided, all columns will be sorted in ascending order.
-        Raises:
-            ValueError: when order_by contain undefined attribute names
-            ValueError: when ascending is passed but having different length comparing to order_by
-            ValueError: when ascending is passed but order_by is not
+            order_by (List[str], optional): see order_by in get_sorted_rows
+            ascending (List[bool], optional): see ascending in get_sorted_rows
         """
         # print(f'{self.__class__.__name__}.{self.to_table_str.__name__} data_len:{len(self.row_list)}')
         output_lines: List[str] = [self.get_table_header_str(), self.get_table_header_sep_str()]
 
-        data_to_show = self.row_list
-
-        order_by = [] if not order_by else order_by
-        # default sorting order is ascending
-        ascending = [True] * len(order_by) if not ascending else ascending
-        # validate attribute names in order_by
-        attr_names_bad = [attr_name for attr_name in order_by if not self.row_type.is_col_attr_exist(attr_name)]
-        if attr_names_bad:
-            raise ValueError(f'Unknown attribute names in order_by: {attr_names_bad}')
-
-        # sort data if order_by is defined
-        if order_by:
-            if ascending and len(order_by) != len(ascending):
-                raise ValueError('order_by and ascending should have the same length when both are passed in')
-
-            is_all_asc: bool = all(ascending)
-            is_all_desc: bool = all(not asc for asc in ascending)
-            if is_all_asc or is_all_desc:
-                # sorting order is all ascending or decending
-                data_to_show.sort(
-                    key=lambda row_data: [row_data.__getattribute__(attr_name) for attr_name in order_by],
-                    reverse=True if is_all_desc else False,
-                )
-            else:
-                # according to https://docs.python.org/3/howto/sorting.html, sort is stable.
-                # When multiple records have the same key, their original order is preserved.
-                for attr_name, asc in zip(order_by[::-1], ascending[::-1]):
-                    data_to_show = sorted(
-                        data_to_show, key=lambda row_data: row_data.__getattribute__(attr_name), reverse=not asc
-                    )
-        elif ascending:
-            raise ValueError('ascending should not be passed without order_by')
+        data_to_show = self.row_list if not order_by else self.get_sorted_rows(order_by, ascending)
 
         for row_data in data_to_show:
             output_lines.append(self.get_table_line_str(row_data))
