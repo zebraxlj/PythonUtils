@@ -221,6 +221,10 @@ class BaseRow:
 
     @classmethod
     def get_col_header_disp_len_map(cls) -> Dict[str, int]:
+        """ return the map between column attribute name and column header display length
+        Returns:
+            Dict[str, int]: key: column_attribute_name; value: column header display length
+        """
         if cls.__COL_HEADER_DISP_LEN_MAP is None:
             cls.__init_class_col_attributes()
         return cls.__COL_HEADER_DISP_LEN_MAP
@@ -291,6 +295,7 @@ class BaseRow:
 
     @classmethod
     def is_col_attr_exist(cls, attr_name: str) -> bool:
+        """ check if attr_name is a column attribute defined in row_type """
         return (
             attr_name in cls.__annotations__  # attr_name is defined
             and cls._is_col_data_attr(attr_name)  # attribute with attr_name holds actual data
@@ -383,6 +388,22 @@ class BaseTable:
         self._update_col_max_disp_len(row_data=row_data)
 
     def print_table(self, order_by: List[str] = None, ascending: List[bool] = None):
+        """print the table
+        Args:
+            order_by (List[str], optional):
+                order_by is used to sort the result-set in ascending or descending order.
+                All elements in order_by requires to be a column attribute name defined in row_type.
+                The sorting effect is equivalent to sql's order by clause.
+                Records are sorted in ascending order by default. To sort in descending order, use the ascending param.
+            ascending (List[bool], optional):
+                List of true false that marks whether the column in order_by is sorted in ascending or descending order.
+                If provided, order_by needs to be provided and having the same length.
+                If not provided, all columns will be sorted in ascending order.
+        Raises:
+            ValueError: when order_by contain undefined attribute names
+            ValueError: when ascending is passed but having different length comparing to order_by
+            ValueError: when ascending is passed but order_by is not
+        """
         # print(f'{self.__class__.__name__}.{self.to_table_str.__name__} data_len:{len(self.row_list)}')
         output_lines: List[str] = [self.get_table_header_str(), self.get_table_header_sep_str()]
 
@@ -427,6 +448,7 @@ class BaseTable:
 
 
 def get_display_length(s: str) -> int:
+    """ return the display length of the given string. Any wide characters in the input string takes 2 spaces """
     length = 0
     for char in s:
         # Get the Unicode character category
