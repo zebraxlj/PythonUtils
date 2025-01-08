@@ -415,12 +415,37 @@ class BaseTable:
         )
         return ret
 
-    def get_table_header_sep_str(self) -> str:
-        """ generate the header separator line for the output table """
+    def get_table_header_sep_str(self, sep_h: str = None, sep_v: str = None) -> str:
+        """ generate the header separator line for the output table
+        Args:
+            sep_h (str, optional): horrizontal separater
+            sep_v (str, optional): vertical separater
+        Returns:
+            str: header separator line
+        """
+        sep_h = sep_h if sep_h else self.CHAR_HEADER_H_SEP
+        sep_v = sep_v if sep_v else self.CHAR_HEADER_V_SEP
+        return self.get_table_line_sep_str(sep_h=sep_h, sep_v=sep_v)
+
+    def get_table_line_sep_str(self, sep_h: str = None, sep_v: str = None, dense: bool = True) -> str:
+        """ generate row separator line for the output table
+        Args:
+            sep_h (str, optional): horrizontal separater. Defaults to None.
+            sep_v (str, optional): vertical separater. Defaults to None.
+            dense (bool, optional):
+                When True there'll be no space between row sep_h and column sep_v Ex. ----|----.
+                When False there'll be a space between row sep_h and column sep_v Ex. --- | ---.
+                Defaults to True.
+        Returns:
+            str: row separator line
+        """
+        sep_h = sep_h if sep_h else self.CHAR_ROW_SEP
+        sep_v = sep_v if sep_v else self.CHAR_COL_SEP
         col_order = self.row_type.get_col_attr_names()
-        col_data = [self.CHAR_HEADER_H_SEP * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
+        col_data = [sep_h * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
-        ret = f'{self.CHAR_HEADER_H_SEP}{self.CHAR_HEADER_V_SEP}{self.CHAR_HEADER_H_SEP}'.join(
+        col_sep = f'{sep_h}{sep_v}{sep_h}' if dense else f' {sep_v} '
+        ret = col_sep.join(
             f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}'
             for col_val, width in zip(col_data, col_disp_len)
         )
