@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Final
 
 from table_printer import BaseRow, BaseTable, get_display_length
+from table_printer_consts import BoxDrawingChar
 
 
 @dataclass
@@ -78,6 +79,66 @@ def test_table_with_order():
     table.print_table(order_by=['Salary', 'Name'])  # test sort multiple columns
     table.print_table(order_by=['Salary', 'Name'], ascending=[True, False])  # test sort multiple columns
     table.print_table(order_by=['InsertDt'])  # test sort on hidden column
+    # table.print_table(group_by=['Salary'], order_by=['Salary'])
+
+
+def test_table_with_customized_row_separator():
+    print('test print table with customized row separator')
+
+    @dataclass
+    class RowOfficeExample(BaseRow):
+        BuildingId: int = -1
+        BuildingName: str = 'NA'
+        DepartmentId: int = -1
+        DepartmentName: str = 'NA'
+        Floor: int = -1
+        OfficeId: str = 'NA'
+
+    class TableOfficeExample(BaseTable):
+        row_type = RowOfficeExample
+
+    # create table instance
+    table = TableOfficeExample()
+    offices = [
+        RowOfficeExample(BuildingId=1, BuildingName='B1', DepartmentId=1, DepartmentName='D1', Floor=1, OfficeId=1),
+        RowOfficeExample(BuildingId=1, BuildingName='B1', DepartmentId=1, DepartmentName='D1', Floor=1, OfficeId=2),
+        RowOfficeExample(BuildingId=1, BuildingName='B1', DepartmentId=2, DepartmentName='D2', Floor=2, OfficeId=3),
+        RowOfficeExample(BuildingId=1, BuildingName='B1', DepartmentId=2, DepartmentName='D2', Floor=2, OfficeId=4),
+        RowOfficeExample(BuildingId=1, BuildingName='B1', DepartmentId=3, DepartmentName='D3', Floor=3, OfficeId=5),
+        RowOfficeExample(BuildingId=2, BuildingName='B2', DepartmentId=3, DepartmentName='D3', Floor=1, OfficeId=6),
+        RowOfficeExample(BuildingId=2, BuildingName='B2', DepartmentId=4, DepartmentName='D4', Floor=1, OfficeId=7),
+        RowOfficeExample(BuildingId=2, BuildingName='B2', DepartmentId=4, DepartmentName='D4', Floor=2, OfficeId=8),
+        RowOfficeExample(BuildingId=2, BuildingName='B2', DepartmentId=4, DepartmentName='D4', Floor=2, OfficeId=9),
+    ]
+    for office_row in offices:
+        table.insert_row(office_row)
+
+    # prepare output: get header line and header separator line
+    lines = [table.get_table_header_str(), table.get_table_header_sep_str()]
+
+    # prepare output: sort the rows and add customized separator for printing the table
+    rows_sorted = table.get_sorted_rows(order_by=['BuildingId', 'Floor'], ascending=[True, False])
+
+    # prepare output: insert row line and row separator line
+    row_prev: RowOfficeExample = None
+    for row in rows_sorted:
+        # If you don't know what you are doing, it's recommended add the separator regarding to the sorting order.
+        # Otherwise, you may see same column value being separated into different chunks and the output looks weird.
+        row: RowOfficeExample
+        if row_prev is not None and row_prev.BuildingId != row.BuildingId:
+            lines.append(table.get_table_line_sep_str(
+                sep_h=BoxDrawingChar.LIGHT_HORIZONTAL, sep_v=BoxDrawingChar.LIGHT_VERTICAL_AND_HORIZONTAL
+            ))
+        elif row_prev is not None and row_prev.Floor != row.Floor:
+            lines.append(table.get_table_line_sep_str(
+                sep_h=BoxDrawingChar.LIGHT_HORIZONTAL, sep_v=BoxDrawingChar.LIGHT_VERTICAL, dense=False
+            ))
+        lines.append(table.get_table_line_str(row))
+        row_prev = row
+
+    # print output
+    for line in lines:
+        print(line)
 
 
 if __name__ == '__main__':
@@ -121,3 +182,4 @@ if __name__ == '__main__':
         # table.print_table()
 
     test_table_with_order()
+    test_table_with_customized_row_separator()
