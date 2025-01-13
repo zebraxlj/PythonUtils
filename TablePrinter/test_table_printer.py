@@ -82,6 +82,29 @@ def test_table_with_order():
     # table.print_table(group_by=['Salary'], order_by=['Salary'])
 
 
+def test_table_with_customized_col_color_scale():
+    @dataclass
+    class RowColColorScaleExample(BaseRow):
+        pass
+        RowId: int = -1
+        Score: int = -1
+
+    class TableColColorScaleExample(BaseTable):
+        row_type = RowColColorScaleExample
+
+    table = TableColColorScaleExample()
+    rows = [
+        RowColColorScaleExample(RowId=1, Score=10),
+        RowColColorScaleExample(RowId=2, Score=20),
+        RowColColorScaleExample(RowId=3, Score=30),
+        RowColColorScaleExample(RowId=4, Score=40),
+        RowColColorScaleExample(RowId=5, Score=50),
+    ]
+    for row in rows:
+        table.insert_row(row_data=row)
+    table.print_table()
+
+
 def test_table_with_customized_row_separator():
     print('test print table with customized row separator')
 
@@ -182,4 +205,5 @@ if __name__ == '__main__':
         # table.print_table()
 
     test_table_with_order()
+    test_table_with_customized_col_color_scale()
     test_table_with_customized_row_separator()
