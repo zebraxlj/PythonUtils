@@ -11,21 +11,18 @@ from table_printer_consts import BoxDrawingChar
 class RowExample(BaseRow):
     """
     1. Every field is a column in the row. When define, a default value is required
-    2. __<ColumnName>_alias: if defined, output title will show alias instead of <ColumnName>.
-    3. __<ColumnName>_hide: if defined and value is set to True, column will not show up in the output.
+    2. __<ColumnName>_config: if defined
+        a. output will use the config.alias as title instead of <ColumnName> if not None.
+        b. output will not display the column if config.hide is True.
+        c. output will use config.format to format the string if <ColumnName> type is datetime.
     """
     ColInt: int = -1
-    # __ColInt_hide: Final[bool] = True
 
     ColStr: str = 'N/A'
     __ColStr_config: Final[ColumnConfig] = ColumnConfig(alias='EN column alias', hide=False)
-    __ColStr_alias: Final[str] = 'EN column alias'  # test en alias display
-    # __ColStr_hide: Final[bool] = True
 
     ColStrCn: str = 'N/A'
     __ColStrCn_config: Final[ColumnConfig] = ColumnConfig(alias='中文别名', hide=True)
-    __ColStrCn_alias: Final[str] = '中文别名'  # test cn alias display
-    # __ColStrCn_hide: Final[bool] = True
 
     ColHidden: str = 'N/A'
     __ColHidden_config: Final[ColumnConfig] = ColumnConfig(alias='不应该能看到这列', hide=True)
@@ -34,9 +31,6 @@ class RowExample(BaseRow):
     __LastModifiedDate_config: Final[ColumnConfig] = ColumnConfig(
         alias='最后修改日期', hide=False, format='%Y-%m-%d %H:%M:%S'
     )
-    # __LastModifiedDate_alias: Final[str] = '最后修改日期'
-    __LastModifiedDate_hide: Final[bool] = False
-    __LastModifiedDate_format: Final[str] = '%Y-%m-%d %H:%M:%S'
 
 
 # @dataclass
@@ -48,17 +42,12 @@ class TableExample(BaseTable):
 class RowEmployeeExample(BaseRow):
     Name: str = ''
     __Name_config: Final[ColumnConfig] = ColumnConfig(alias='名字')
-    __Name_alias: Final[str] = '名字'
     Age: int = None
     __Age_config: Final[ColumnConfig] = ColumnConfig(alias='年龄')
-    __Age_alias: Final[str] = '年龄'
     Salary: int = None
     __Salary_config: Final[ColumnConfig] = ColumnConfig(alias='工资')
-    __Salary_alias: Final[str] = '工资'
     InsertDt: datetime = field(default_factory=datetime.now)
     __InsertDt_config: Final[ColumnConfig] = ColumnConfig(hide=False, format='%H:%M:%S.%f')
-    # __InsertDt_hide: Final[bool] = True
-    __InsertDt_format: Final[str] = '%H:%M:%S.%f'
 
 
 class TableEmployeeExample(BaseTable):

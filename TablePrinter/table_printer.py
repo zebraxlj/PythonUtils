@@ -29,36 +29,14 @@ class BaseRow:
         Ex: Col1: int = 1
     3. Provide column config: type: ColumnConfig
         Ex: __Col1_config: Final[ColumnConfig] = ColumnConfig(alias="Column1")
-    3. Provide column alias: column alias is displayed in the table title when printing out the table.
-        Each private field that ends with '_alias' is a column alias for display.
-        Ex: __Col1_alias: Final[str] = 'Column1AliasName'
-    4. Hide column in output: if a column is hidden, it will not show when printing out the table.
-        Each private field that ends with '_hide' is a hidden controller for a column.
-        Ex: __Col1_hide: Final[bool] = True
     """
-    __ALIAS_PREFIX: str = None
-    __ALIAS_SUFFIX: str = '_alias'
     __CONFIG_PREFIX: str = None
     __CONFIG_SUFFIX: str = '_config'
-    __FORMAT_PREFIX: str = None
-    __FORMAT_SUFFIX: str = '_format'
-    __HIDE_PREFIX: str = None
-    __HIDE_SUFFIX: str = '_hide'
 
     __COL_ATTR_NAMES: List[str] = None
     __COL_HEADER_DISP_LEN_MAP: Dict[str, int] = None
     __COL_HEADER_LEN_MAP: Dict[str, int] = None
     __COL_HEADER_MAP: Dict[str, str] = None
-
-    @classmethod
-    def __GET_ALIAS_PREFIX(cls):
-        if cls.__ALIAS_PREFIX is None:
-            cls.__ALIAS_PREFIX = f'_{cls.__name__}__'
-        return cls.__ALIAS_PREFIX
-
-    @classmethod
-    def __GET_ALIAS_SUFFIX(cls):
-        return cls.__ALIAS_SUFFIX
 
     @classmethod
     def __GET_CONFIG_PREFIX(cls):
@@ -71,26 +49,6 @@ class BaseRow:
         return cls.__CONFIG_SUFFIX
 
     @classmethod
-    def __GET_FORMAT_PREFIX(cls):
-        if cls.__FORMAT_PREFIX is None:
-            cls.__FORMAT_PREFIX = f'_{cls.__name__}__'
-        return cls.__FORMAT_PREFIX
-
-    @classmethod
-    def __GET_FORMAT_SUFFIX(cls):
-        return cls.__FORMAT_SUFFIX
-
-    @classmethod
-    def __GET_HIDE_PREFIX(cls):
-        if cls.__HIDE_PREFIX is None:
-            cls.__HIDE_PREFIX = f'_{cls.__name__}__'
-        return cls.__HIDE_PREFIX
-
-    @classmethod
-    def __GET_HIDE_SUFFIX(cls):
-        return cls.__HIDE_SUFFIX
-
-    @classmethod
     def __init_class_col_attributes(cls) -> None:
         cls.__COL_ATTR_NAMES = [
             attr for attr in cls.__annotations__
@@ -100,22 +58,12 @@ class BaseRow:
         cls.__COL_HEADER_LEN_MAP = dict()
         cls.__COL_HEADER_MAP = dict()
         for attr_name in cls.__COL_ATTR_NAMES:
-            has_alias, alias_attr = cls._try_get_alias_attr(attr_name)
-            col_header = cls.__dict__.get(alias_attr, attr_name) if has_alias else attr_name
             has_config, config_attr = cls._try_get_config_attr(attr_name)
             col_config: ColumnConfig = cls.__dict__.get(config_attr, None) if has_config else None
             col_header = col_config.alias if col_config and col_config.alias else attr_name
             cls.__COL_HEADER_DISP_LEN_MAP[attr_name] = get_display_length(col_header)
             cls.__COL_HEADER_LEN_MAP[attr_name] = len(col_header)
             cls.__COL_HEADER_MAP[attr_name] = col_header
-
-    @classmethod
-    def _get_alias_attr_name(cls, col_name: str) -> str:
-        """
-        Column Alias Naming: _<RowClassName>__<ColumnAttributeName>_alias, where _<RowClassName> is added by
-        python name mangling
-        """
-        return f'{cls.__GET_ALIAS_PREFIX()}{col_name}{cls.__GET_ALIAS_SUFFIX()}'
 
     @classmethod
     def _get_config_attr_name(cls, col_name: str) -> str:
@@ -126,44 +74,15 @@ class BaseRow:
         return f'{cls.__GET_CONFIG_PREFIX()}{col_name}{cls.__GET_CONFIG_SUFFIX()}'
 
     @classmethod
-    def _get_format_attr_name(cls, col_name: str) -> str:
-        """
-        Column Fromat Naming: _<RowClassName>__<ColumnAttributeName>_format, where _<RowClassName> is added by
-        python name mangling
-        """
-        return f'{cls.__GET_FORMAT_PREFIX()}{col_name}{cls.__GET_FORMAT_SUFFIX()}'
-
-    @classmethod
-    def _get_hidden_controller_attr_name(cls, col_name: str) -> str:
-        """
-        Column Alias Naming: _<RowClassName>__<ColumnAttributeName>_hide, where _<RowClassName> is added by
-        python name mangling
-        """
-        return f'{cls.__GET_HIDE_PREFIX()}{col_name}{cls.__GET_HIDE_SUFFIX()}'
-
-    @classmethod
-    def _is_alias(cls, attr_name: str) -> bool:
-        """ check if the given name is an alias field
-        Args:
-            attr_name (str): an attribute name
-        Returns:
-            bool: True if matches alias attribute name pattern
-        """
-        return attr_name.startswith(cls.__GET_ALIAS_PREFIX()) and attr_name.endswith(cls.__GET_ALIAS_SUFFIX())
-
-    @classmethod
     def _is_col_data_attr(cls, attr_name: str) -> bool:
         """ check if the given name is the attribute that holds the column value
         Args:
             attr_name (str): an attribute name
         Returns:
-            bool: True if attribute is not alias and not hidden controller
+            bool: True if attribute is not config
         """
         return (
-            not cls._is_alias(attr_name)
-            and not cls._is_config(attr_name)
-            and not cls._is_format(attr_name)
-            and not cls._is_hidden_controller(attr_name)
+            not cls._is_config(attr_name)
         )
 
     @classmethod
@@ -189,46 +108,6 @@ class BaseRow:
         if col_config and col_config.hide:
             return True
         return False
-        col_header = col_config.alias if col_config and col_config.alias else attr_name
-        cls._try_get_config_attr
-        has_hidden_controller, hidden_controller_name = cls._try_get_hidden_controller(attr_name)
-        if not has_hidden_controller:
-            return False
-        return cls.__dict__.get(hidden_controller_name, False)
-
-    @classmethod
-    def _is_format(cls, attr_name: str) -> bool:
-        """ return True if given attribute name matches format attribute name pattern """
-        return attr_name.startswith(cls.__GET_FORMAT_PREFIX()) and attr_name.endswith(cls.__GET_FORMAT_SUFFIX())
-
-    @classmethod
-    def _is_hidden_controller(cls, attr_name: str) -> bool:
-        """ check if the given name is a hidden controller field
-        Returns:
-            bool: True if matches hidden controller attribute name pattern
-        """
-        return attr_name.startswith(cls.__GET_HIDE_PREFIX()) and attr_name.endswith(cls.__GET_HIDE_SUFFIX())
-
-    @classmethod
-    def _try_get_alias_attr(cls, attr_name: str) -> Tuple[bool, str]:
-        """ try to get the alias attribute name of the given attribute name
-        Args:
-            attr_name (str): an attribute name
-        Returns:
-            Tuple[bool, str]:
-                if alias attribute is defined, return True and the alias attribute name
-                if alias attribute is not defined, return False and blank string
-        """
-        if not cls._is_col_data_attr(attr_name):
-            # given attribute doesn't hold column data
-            return False, ''
-
-        alias_attr = cls._get_alias_attr_name(attr_name)
-        if alias_attr in cls.__annotations__:
-            # alias attribute is defined
-            return True, alias_attr
-        # alias attribute is not defined
-        return False, ''
 
     @classmethod
     def _try_get_config_attr(cls, attr_name: str) -> Tuple[bool, str]:
@@ -252,49 +131,8 @@ class BaseRow:
         return False, ''
 
     @classmethod
-    def _try_get_format_attr(cls, attr_name: str) -> Tuple[bool, str]:
-        """ try to get the format attribute name of the given attribute name
-        Args:
-            attr_name (str): an attribute name
-        Returns:
-            Tuple[bool, str]:
-                if format attribute is defined, return True and the format attribute name
-                if format attribute is not defined: return False and blank string
-        """
-        if not cls._is_col_data_attr(attr_name):
-            return False, ''
-
-        format_attr = cls._get_format_attr_name(attr_name)
-        if format_attr in cls.__annotations__:
-            # format attribute is defined
-            return True, format_attr
-        # format attribute is not defined
-        return False, ''
-
-    @classmethod
-    def _try_get_hidden_controller(cls, attr_name: str) -> Tuple[bool, str]:
-        """ try to get the hide controller attribute name of the given attribute name
-        Args:
-            attr_name (str): an attribute name
-        Returns:
-            Tuple[bool, str]:
-                if hide controller is defined, return True and the hide controller name
-                if hide controller is not defined, return False and blank string
-        """
-        if not cls._is_col_data_attr(attr_name):
-            # given attribute doesn't hold column data
-            return False, ''
-
-        hidden_controller_attr = cls._get_hidden_controller_attr_name(attr_name)
-        if hidden_controller_attr in cls.__annotations__:
-            # hidden controller is defined
-            return True, hidden_controller_attr
-        # hidden controller is not defined
-        return False, ''
-
-    @classmethod
     def get_col_attr_names(cls) -> List[str]:
-        """ return the list of all column attribute names (no hidden, no alias, just attribute names) """
+        """ return the list of all column attribute names (no config, just attribute names) """
         if cls.__COL_ATTR_NAMES is None:
             cls.__init_class_col_attributes()
         return cls.__COL_ATTR_NAMES
@@ -335,12 +173,6 @@ class BaseRow:
                 if col_config and col_config.format:
                     ret[attr_name] = attr_val.strftime(col_config.format)
                     continue
-                has_format, format_attr = self._try_get_format_attr(attr_name)
-                if has_format:
-                    format_str = self.__getattribute__(format_attr)
-                    ret[attr_name] = attr_val.strftime(format_str)
-                    continue
-
             ret[attr_name] = self.__getattribute__(attr_name)
         return ret
 
