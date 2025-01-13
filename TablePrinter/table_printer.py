@@ -2,7 +2,7 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, TypeVar
+from typing import Dict, List, Optional, TypeVar
 
 
 @dataclass
@@ -58,12 +58,32 @@ class BaseRow:
         cls.__COL_HEADER_LEN_MAP = dict()
         cls.__COL_HEADER_MAP = dict()
         for attr_name in cls.__COL_ATTR_NAMES:
-            has_config, config_attr = cls._try_get_config_attr(attr_name)
-            col_config: ColumnConfig = cls.__dict__.get(config_attr, None) if has_config else None
-            col_header = col_config.alias if col_config and col_config.alias else attr_name
+            col_config: ColumnConfig = cls._get_config(attr_name)
+            col_header = col_config.alias if col_config.alias else attr_name
             cls.__COL_HEADER_DISP_LEN_MAP[attr_name] = get_display_length(col_header)
             cls.__COL_HEADER_LEN_MAP[attr_name] = len(col_header)
             cls.__COL_HEADER_MAP[attr_name] = col_header
+
+    @classmethod
+    def _get_config(cls, attr_name: str) -> ColumnConfig:
+        """get config of the given attribute name if defined, else return the default ColumnConfig()
+
+        Args:
+            attr_name (str): an attribute name
+
+        Raises:
+            ValueError: when given attr_name doesn't hold data
+        """
+        if not cls._is_col_data_attr(attr_name):
+            # given attribute doesn't hold column data
+            raise ValueError(f'Cannot get config on non-data attribute: {attr_name}.')
+
+        config_attr_name = cls._get_config_attr_name(attr_name)
+        if config_attr_name in cls.__annotations__:
+            # config attribute is defined
+            return cls.__dict__[config_attr_name]
+        # config attribute is not defined, return default ColumnConfig
+        return ColumnConfig()
 
     @classmethod
     def _get_config_attr_name(cls, col_name: str) -> str:
@@ -103,32 +123,10 @@ class BaseRow:
         """
         if not cls._is_col_data_attr(attr_name):
             return False
-        has_config, config_attr = cls._try_get_config_attr(attr_name)
-        col_config: ColumnConfig = cls.__dict__.get(config_attr, None) if has_config else None
-        if col_config and col_config.hide:
+        col_config: ColumnConfig = cls._get_config(attr_name)
+        if col_config.hide:
             return True
         return False
-
-    @classmethod
-    def _try_get_config_attr(cls, attr_name: str) -> Tuple[bool, str]:
-        """ try to get the config attribute name of the given attribute name
-        Args:
-            attr_name (str): an attribute name
-        Returns:
-            Tuple[bool, str]:
-                if config attribute is defined, return True and the config attribute name
-                if config attribute is not defined: return False and blank string
-        """
-        if not cls._is_col_data_attr(attr_name):
-            # given attribute doesn't hold column data
-            return False, ''
-
-        config_attr = cls._get_config_attr_name(attr_name)
-        if config_attr in cls.__annotations__:
-            # config attribute is defined
-            return True, config_attr
-        # config attribute is not defined
-        return False, ''
 
     @classmethod
     def get_col_attr_names(cls) -> List[str]:
@@ -168,9 +166,8 @@ class BaseRow:
         for attr_name in self.get_col_attr_names():
             attr_val = self.__getattribute__(attr_name)
             if isinstance(attr_val, datetime):
-                has_config, config_attr = self._try_get_config_attr(attr_name)
-                col_config: ColumnConfig = self.__dict__.get(config_attr, None) if has_config else None
-                if col_config and col_config.format:
+                col_config: ColumnConfig = self._get_config(attr_name)
+                if col_config.format:
                     ret[attr_name] = attr_val.strftime(col_config.format)
                     continue
             ret[attr_name] = self.__getattribute__(attr_name)
