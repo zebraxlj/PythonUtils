@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final
 
-from table_printer import BaseRow, BaseTable, get_display_length
+from table_printer import BaseRow, BaseTable, ColumnConfig, get_display_length
 from table_printer_consts import BoxDrawingChar
 
 
@@ -18,16 +18,24 @@ class RowExample(BaseRow):
     # __ColInt_hide: Final[bool] = True
 
     ColStr: str = 'N/A'
+    __ColStr_config: Final[ColumnConfig] = ColumnConfig(alias='EN column alias', hide=False)
     __ColStr_alias: Final[str] = 'EN column alias'  # test en alias display
     # __ColStr_hide: Final[bool] = True
 
     ColStrCn: str = 'N/A'
+    __ColStrCn_config: Final[ColumnConfig] = ColumnConfig(alias='中文别名', hide=True)
     __ColStrCn_alias: Final[str] = '中文别名'  # test cn alias display
     # __ColStrCn_hide: Final[bool] = True
 
+    ColHidden: str = 'N/A'
+    __ColHidden_config: Final[ColumnConfig] = ColumnConfig(alias='不应该能看到这列', hide=True)
+
     LastModifiedDate: datetime = field(default_factory=datetime.now)  # test datetime column display
+    __LastModifiedDate_config: Final[ColumnConfig] = ColumnConfig(
+        alias='最后修改日期', hide=False, format='%Y-%m-%d %H:%M:%S'
+    )
     # __LastModifiedDate_alias: Final[str] = '最后修改日期'
-    __LastModifiedDate_hide: Final[bool] = True
+    __LastModifiedDate_hide: Final[bool] = False
     __LastModifiedDate_format: Final[str] = '%Y-%m-%d %H:%M:%S'
 
 
@@ -39,13 +47,17 @@ class TableExample(BaseTable):
 @dataclass
 class RowEmployeeExample(BaseRow):
     Name: str = ''
+    __Name_config: Final[ColumnConfig] = ColumnConfig(alias='名字')
     __Name_alias: Final[str] = '名字'
     Age: int = None
+    __Age_config: Final[ColumnConfig] = ColumnConfig(alias='年龄')
     __Age_alias: Final[str] = '年龄'
     Salary: int = None
+    __Salary_config: Final[ColumnConfig] = ColumnConfig(alias='工资')
     __Salary_alias: Final[str] = '工资'
     InsertDt: datetime = field(default_factory=datetime.now)
-    __InsertDt_hide: Final[bool] = True
+    __InsertDt_config: Final[ColumnConfig] = ColumnConfig(hide=False, format='%H:%M:%S.%f')
+    # __InsertDt_hide: Final[bool] = True
     __InsertDt_format: Final[str] = '%H:%M:%S.%f'
 
 
@@ -144,19 +156,19 @@ def test_table_with_customized_row_separator():
 if __name__ == '__main__':
     print('test_table_printer START', '=' * 50)
 
-    if 0:  # RowExample Test - class method
+    if 1:  # RowExample Test - class method
         print('RowExample Test - class method')
         print(RowExample.get_col_attr_names())
         print(RowExample.get_col_header_map())
         print(RowExample.get_col_header_len_map())
 
-    if 0:  # RowExample Test - instance
+    if 1:  # RowExample Test - instance
         print('RowExample Test - instance')
         test_row = RowExample(ColInt=11, ColStr='some text')
         print(test_row.get_col_header_map())
         print(test_row.get_col_value_disp_len())
 
-    if 0:  # calculate display length for wide and narrow characters
+    if 1:  # calculate display length for wide and narrow characters
         print('get_display_length Test - wide narrow character display width')
         msg = 'aF'
         print(msg, get_display_length(msg))
@@ -167,7 +179,7 @@ if __name__ == '__main__':
         msg = str(1)
         print(msg, get_display_length(msg))
 
-    if 0:
+    if 1:
         print('TableExample Test')
         table = TableExample()
         # # table.insert_row(RowExample())
@@ -179,7 +191,7 @@ if __name__ == '__main__':
         table.insert_row(RowExample(ColInt=5))
         table.insert_row(RowExample(ColInt=1, ColStr='text2', ColStrCn='短中文1'))
         # table.insert_row(RowExample(ColInt=2, ColStr='some Text', __ColInt='new name'))  # test private var error
-        # table.print_table()
+        table.print_table()
 
     test_table_with_order()
     test_table_with_customized_row_separator()

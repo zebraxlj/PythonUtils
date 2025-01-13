@@ -2,7 +2,23 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Tuple, TypeVar
+from typing import Dict, List, Optional, Tuple, TypeVar
+
+
+@dataclass
+class ColumnConfig:
+    """ define the property of a column.
+
+    Attributes:
+        alias: column alias is displayed in the table title when printing out the table.
+        format: if a column holds datetime data, output table print the value regarding to the format.
+        hide: if a column is hidden, it will not show when printing out the table.
+    """
+    alias: Optional[str] = None
+
+    format: Optional[str] = None
+
+    hide: Optional[bool] = None
 
 
 @dataclass
@@ -11,6 +27,8 @@ class BaseRow:
     1. Each instance represent a row of data.
     2. Define a column: Each public field is a column.
         Ex: Col1: int = 1
+    3. Provide column config: type: ColumnConfig
+        Ex: __Col1_config: Final[ColumnConfig] = ColumnConfig(alias="Column1")
     3. Provide column alias: column alias is displayed in the table title when printing out the table.
         Each private field that ends with '_alias' is a column alias for display.
         Ex: __Col1_alias: Final[str] = 'Column1AliasName'
@@ -20,6 +38,8 @@ class BaseRow:
     """
     __ALIAS_PREFIX: str = None
     __ALIAS_SUFFIX: str = '_alias'
+    __CONFIG_PREFIX: str = None
+    __CONFIG_SUFFIX: str = '_config'
     __FORMAT_PREFIX: str = None
     __FORMAT_SUFFIX: str = '_format'
     __HIDE_PREFIX: str = None
@@ -39,6 +59,16 @@ class BaseRow:
     @classmethod
     def __GET_ALIAS_SUFFIX(cls):
         return cls.__ALIAS_SUFFIX
+
+    @classmethod
+    def __GET_CONFIG_PREFIX(cls):
+        if cls.__CONFIG_PREFIX is None:
+            cls.__CONFIG_PREFIX = f'_{cls.__name__}__'
+        return cls.__CONFIG_PREFIX
+
+    @classmethod
+    def __GET_CONFIG_SUFFIX(cls):
+        return cls.__CONFIG_SUFFIX
 
     @classmethod
     def __GET_FORMAT_PREFIX(cls):
@@ -72,6 +102,9 @@ class BaseRow:
         for attr_name in cls.__COL_ATTR_NAMES:
             has_alias, alias_attr = cls._try_get_alias_attr(attr_name)
             col_header = cls.__dict__.get(alias_attr, attr_name) if has_alias else attr_name
+            has_config, config_attr = cls._try_get_config_attr(attr_name)
+            col_config: ColumnConfig = cls.__dict__.get(config_attr, None) if has_config else None
+            col_header = col_config.alias if col_config and col_config.alias else attr_name
             cls.__COL_HEADER_DISP_LEN_MAP[attr_name] = get_display_length(col_header)
             cls.__COL_HEADER_LEN_MAP[attr_name] = len(col_header)
             cls.__COL_HEADER_MAP[attr_name] = col_header
@@ -83,6 +116,14 @@ class BaseRow:
         python name mangling
         """
         return f'{cls.__GET_ALIAS_PREFIX()}{col_name}{cls.__GET_ALIAS_SUFFIX()}'
+
+    @classmethod
+    def _get_config_attr_name(cls, col_name: str) -> str:
+        """
+        Column Config Naming: _<RowClassName>__<ColumnAttributeName>_config, where _<RowClassName> is added by
+        python name mangling
+        """
+        return f'{cls.__GET_CONFIG_PREFIX()}{col_name}{cls.__GET_CONFIG_SUFFIX()}'
 
     @classmethod
     def _get_format_attr_name(cls, col_name: str) -> str:
@@ -120,9 +161,20 @@ class BaseRow:
         """
         return (
             not cls._is_alias(attr_name)
+            and not cls._is_config(attr_name)
             and not cls._is_format(attr_name)
             and not cls._is_hidden_controller(attr_name)
         )
+
+    @classmethod
+    def _is_config(cls, attr_name: str) -> bool:
+        """ check if the given name is an config field
+        Args:
+            attr_name (str): an attribute name
+        Returns:
+            bool: True if matches config attribute name pattern
+        """
+        return attr_name.startswith(cls.__GET_CONFIG_PREFIX()) and attr_name.endswith(cls.__GET_CONFIG_SUFFIX())
 
     @classmethod
     def _is_col_hidden(cls, attr_name: str) -> bool:
@@ -132,6 +184,13 @@ class BaseRow:
         """
         if not cls._is_col_data_attr(attr_name):
             return False
+        has_config, config_attr = cls._try_get_config_attr(attr_name)
+        col_config: ColumnConfig = cls.__dict__.get(config_attr, None) if has_config else None
+        if col_config and col_config.hide:
+            return True
+        return False
+        col_header = col_config.alias if col_config and col_config.alias else attr_name
+        cls._try_get_config_attr
         has_hidden_controller, hidden_controller_name = cls._try_get_hidden_controller(attr_name)
         if not has_hidden_controller:
             return False
@@ -169,6 +228,27 @@ class BaseRow:
             # alias attribute is defined
             return True, alias_attr
         # alias attribute is not defined
+        return False, ''
+
+    @classmethod
+    def _try_get_config_attr(cls, attr_name: str) -> Tuple[bool, str]:
+        """ try to get the config attribute name of the given attribute name
+        Args:
+            attr_name (str): an attribute name
+        Returns:
+            Tuple[bool, str]:
+                if config attribute is defined, return True and the config attribute name
+                if config attribute is not defined: return False and blank string
+        """
+        if not cls._is_col_data_attr(attr_name):
+            # given attribute doesn't hold column data
+            return False, ''
+
+        config_attr = cls._get_config_attr_name(attr_name)
+        if config_attr in cls.__annotations__:
+            # config attribute is defined
+            return True, config_attr
+        # config attribute is not defined
         return False, ''
 
     @classmethod
@@ -250,6 +330,11 @@ class BaseRow:
         for attr_name in self.get_col_attr_names():
             attr_val = self.__getattribute__(attr_name)
             if isinstance(attr_val, datetime):
+                has_config, config_attr = self._try_get_config_attr(attr_name)
+                col_config: ColumnConfig = self.__dict__.get(config_attr, None) if has_config else None
+                if col_config and col_config.format:
+                    ret[attr_name] = attr_val.strftime(col_config.format)
+                    continue
                 has_format, format_attr = self._try_get_format_attr(attr_name)
                 if has_format:
                     format_str = self.__getattribute__(format_attr)
