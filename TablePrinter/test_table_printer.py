@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final
 
-from table_printer import BaseRow, BaseTable, ColumnConfig, get_display_length
+from table_printer import BaseRow, BaseTable, ColumnAlignment, ColumnConfig, get_display_length
 from table_printer_consts import BoxDrawingChar
 
 
@@ -19,7 +19,7 @@ class RowExample(BaseRow):
     ColInt: int = -1
 
     ColStr: str = 'N/A'
-    __ColStr_config: Final[ColumnConfig] = ColumnConfig(alias='EN column alias', hide=False)
+    __ColStr_config: Final[ColumnConfig] = ColumnConfig(alias='EN column alias', align=ColumnAlignment.LEFT, hide=False)
 
     ColStrCn: str = 'N/A'
     __ColStrCn_config: Final[ColumnConfig] = ColumnConfig(alias='中文别名', hide=True)

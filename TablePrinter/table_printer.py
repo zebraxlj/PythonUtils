@@ -2,7 +2,14 @@ import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import Dict, List, Optional, TypeVar
+
+
+class ColumnAlignment(str, Enum):
+    CENTER = '^'
+    LEFT = '<'
+    RIGHT = '>'
 
 
 @dataclass
@@ -15,6 +22,8 @@ class ColumnConfig:
         hide: if a column is hidden, it will not show when printing out the table.
     """
     alias: Optional[str] = None
+
+    align: Optional[ColumnAlignment] = ColumnAlignment.CENTER
 
     format: Optional[str] = None
 
@@ -321,11 +330,12 @@ class BaseTable:
         """ generate the header line for the output table """
         # print(f'{self.__class__.__name__}.{self.get_table_header_str.__name__} row_type:{self.row_type}')
         col_order = self.row_type.get_col_attr_names()
+        col_align = [self.row_type._get_config(attr).align for attr in col_order]
         col_data = [self.row_type.get_col_header_map()[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         ret = f' {self.CHAR_COL_SEP} '.join(
-            f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}'
-            for col_val, width in zip(col_data, col_disp_len)
+            f'{col_val:{align}{width-get_display_length(str(col_val))+len(str(col_val))}}'
+            for col_val, align, width in zip(col_data, col_align, col_disp_len)
         )
         return ret
 
@@ -356,24 +366,26 @@ class BaseTable:
         sep_h = sep_h if sep_h else self.CHAR_ROW_SEP
         sep_v = sep_v if sep_v else self.CHAR_COL_SEP
         col_order = self.row_type.get_col_attr_names()
+        col_align = [self.row_type._get_config(attr).align for attr in col_order]
         col_data = [sep_h * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         col_sep = f'{sep_h}{sep_v}{sep_h}' if dense else f' {sep_v} '
         ret = col_sep.join(
-            f'{col_val:^{width-get_display_length(str(col_val))+len(str(col_val))}}'
-            for col_val, width in zip(col_data, col_disp_len)
+            f'{col_val:{align}{width-get_display_length(str(col_val))+len(str(col_val))}}'
+            for col_val, align, width in zip(col_data, col_align, col_disp_len)
         )
         return ret
 
     def get_table_line_str(self, row_data: TBaseRow) -> str:
         """ generate a row line of the given row_data for the output table """
         col_order = self.row_type.get_col_attr_names()
+        col_align = [self.row_type._get_config(attr).align for attr in col_order]
         col_data_disp = row_data.get_col_value_disp()
         col_data = [col_data_disp[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         ret = f' {self.CHAR_COL_SEP} '.join(
-            f'{str(col_val):^{width-get_display_length(str(col_val))+len(str(col_val))}}'
-            for col_val, width in zip(col_data, col_disp_len)
+            f'{str(col_val):{align}{width-get_display_length(str(col_val))+len(str(col_val))}}'
+            for col_val, align, width in zip(col_data, col_align, col_disp_len)
         )
         return ret
 
