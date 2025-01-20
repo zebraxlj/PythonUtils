@@ -67,32 +67,11 @@ class BaseRow:
         cls.__COL_HEADER_LEN_MAP = dict()
         cls.__COL_HEADER_MAP = dict()
         for attr_name in cls.__COL_ATTR_NAMES:
-            col_config: ColumnConfig = cls._get_config(attr_name)
+            col_config: ColumnConfig = cls.get_config(attr_name)
             col_header = col_config.alias if col_config.alias else attr_name
             cls.__COL_HEADER_DISP_LEN_MAP[attr_name] = get_display_length(col_header)
             cls.__COL_HEADER_LEN_MAP[attr_name] = len(col_header)
             cls.__COL_HEADER_MAP[attr_name] = col_header
-
-    @classmethod
-    def _get_config(cls, attr_name: str) -> ColumnConfig:
-        """get config of the given attribute name if defined, else return the default ColumnConfig()
-
-        Args:
-            attr_name (str): an attribute name
-
-        Raises:
-            ValueError: when given attr_name doesn't hold data
-        """
-        if not cls._is_col_data_attr(attr_name):
-            # given attribute doesn't hold column data
-            raise ValueError(f'Cannot get config on non-data attribute: {attr_name}.')
-
-        config_attr_name = cls._get_config_attr_name(attr_name)
-        if config_attr_name in cls.__annotations__:
-            # config attribute is defined
-            return cls.__dict__[config_attr_name]
-        # config attribute is not defined, return default ColumnConfig
-        return ColumnConfig()
 
     @classmethod
     def _get_config_attr_name(cls, col_name: str) -> str:
@@ -132,7 +111,7 @@ class BaseRow:
         """
         if not cls._is_col_data_attr(attr_name):
             return False
-        col_config: ColumnConfig = cls._get_config(attr_name)
+        col_config: ColumnConfig = cls.get_config(attr_name)
         if col_config.hide:
             return True
         return False
@@ -175,7 +154,7 @@ class BaseRow:
         for attr_name in self.get_col_attr_names():
             attr_val = self.__getattribute__(attr_name)
             if isinstance(attr_val, datetime):
-                col_config: ColumnConfig = self._get_config(attr_name)
+                col_config: ColumnConfig = self.get_config(attr_name)
                 if col_config.format:
                     ret[attr_name] = attr_val.strftime(col_config.format)
                     continue
@@ -223,6 +202,27 @@ class BaseRow:
             attr_name in cls.__annotations__  # attr_name is defined
             and cls._is_col_data_attr(attr_name)  # attribute with attr_name holds actual data
         )
+
+    @classmethod
+    def get_config(cls, attr_name: str) -> ColumnConfig:
+        """get config of the given attribute name if defined, else return the default ColumnConfig()
+
+        Args:
+            attr_name (str): an attribute name
+
+        Raises:
+            ValueError: when given attr_name doesn't hold data
+        """
+        if not cls._is_col_data_attr(attr_name):
+            # given attribute doesn't hold column data
+            raise ValueError(f'Cannot get config on non-data attribute: {attr_name}.')
+
+        config_attr_name = cls._get_config_attr_name(attr_name)
+        if config_attr_name in cls.__dict__:
+            # config attribute is defined
+            return cls.__dict__[config_attr_name]
+        # config attribute is not defined, return default ColumnConfig
+        return ColumnConfig()
 
 
 TBaseRow = TypeVar('TBaseRow', bound=BaseRow)
@@ -330,7 +330,7 @@ class BaseTable:
         """ generate the header line for the output table """
         # print(f'{self.__class__.__name__}.{self.get_table_header_str.__name__} row_type:{self.row_type}')
         col_order = self.row_type.get_col_attr_names()
-        col_align = [self.row_type._get_config(attr).align for attr in col_order]
+        col_align = [self.row_type.get_config(attr).align for attr in col_order]
         col_data = [self.row_type.get_col_header_map()[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         ret = f' {self.CHAR_COL_SEP} '.join(
@@ -366,7 +366,7 @@ class BaseTable:
         sep_h = sep_h if sep_h else self.CHAR_ROW_SEP
         sep_v = sep_v if sep_v else self.CHAR_COL_SEP
         col_order = self.row_type.get_col_attr_names()
-        col_align = [self.row_type._get_config(attr).align for attr in col_order]
+        col_align = [self.row_type.get_config(attr).align for attr in col_order]
         col_data = [sep_h * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         col_sep = f'{sep_h}{sep_v}{sep_h}' if dense else f' {sep_v} '
@@ -379,7 +379,7 @@ class BaseTable:
     def get_table_line_str(self, row_data: TBaseRow) -> str:
         """ generate a row line of the given row_data for the output table """
         col_order = self.row_type.get_col_attr_names()
-        col_align = [self.row_type._get_config(attr).align for attr in col_order]
+        col_align = [self.row_type.get_config(attr).align for attr in col_order]
         col_data_disp = row_data.get_col_value_disp()
         col_data = [col_data_disp[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
