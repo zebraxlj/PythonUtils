@@ -3,13 +3,54 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, TypeVar
+from typing import Dict, List, Optional, Type, TypeVar
 
 
 class ColumnAlignment(str, Enum):
     CENTER = '^'
     LEFT = '<'
     RIGHT = '>'
+
+
+@dataclass
+class ConditionalFormat:
+    def apply_format(self, text: str) -> str:
+        raise NotImplementedError
+
+    def is_condition_match(self, text: str):
+        raise NotImplementedError
+
+
+@dataclass
+class CondFmtContain(ConditionalFormat):
+    contain_target: str = None
+
+    def apply_format(self, text: any) -> str:
+        text = str(text)
+        len_space_l = len(text) - len(text.lstrip())
+        len_space_r = len(text) - len(text.rstrip())
+        return f'{"*" * len_space_l}{text.strip()}{"*" * len_space_r}'
+
+    def is_condition_match(self, text: str):
+        if self.contain_target is None:
+            raise ValueError('contain_target is not defined')
+        return self.contain_target in text
+
+
+@dataclass
+class CondFmtExactMatch(ConditionalFormat):
+    match_target: str = None
+
+    def apply_format(self, text: any) -> str:
+        text = str(text)
+        len_space_l = text.index(self.match_target)
+        len_space_r = len(text) - len_space_l - len(self.match_target)
+        return f'{"*" * len_space_l}{self.match_target}{"*" * len_space_r}'
+
+    def is_condition_match(self, text: str):
+        if self.match_target is None:
+            raise ValueError('match_target is not defined')
+        return text == self.match_target
 
 
 @dataclass
@@ -24,6 +65,8 @@ class ColumnConfig:
     alias: Optional[str] = None
 
     align: Optional[ColumnAlignment] = ColumnAlignment.CENTER
+
+    conditional_format: Optional[Type[ConditionalFormat]] = None
 
     format: Optional[str] = None
 
@@ -379,15 +422,19 @@ class BaseTable:
     def get_table_line_str(self, row_data: TBaseRow) -> str:
         """ generate a row line of the given row_data for the output table """
         col_order = self.row_type.get_col_attr_names()
-        col_align = [self.row_type.get_config(attr).align for attr in col_order]
+        col_config = [self.row_type.get_config(attr) for attr in col_order]
         col_data_disp = row_data.get_col_value_disp()
         col_data = [col_data_disp[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
-        ret = f' {self.CHAR_COL_SEP} '.join(
-            f'{str(col_val):{align}{width-get_display_length(str(col_val))+len(str(col_val))}}'
-            for col_val, align, width in zip(col_data, col_align, col_disp_len)
-        )
-        return ret
+
+        tokens = []
+        for text, config, width in zip(col_data, col_config, col_disp_len):
+            need_conf_fmt = config.conditional_format is not None and config.conditional_format.is_condition_match(text)
+            text = f'{str(text):{config.align}{width-get_display_length(str(text))+len(str(text))}}'
+            if need_conf_fmt:
+                text = config.conditional_format.apply_format(text)
+            tokens.append(text)
+        return f' {self.CHAR_COL_SEP} '.join(tokens)
 
     def insert_row(self, row_data: TBaseRow):
         """ insert a row_data in to the row_list """

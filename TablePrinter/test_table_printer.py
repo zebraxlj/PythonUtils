@@ -3,7 +3,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Final
 
-from table_printer import BaseRow, BaseTable, ColumnAlignment, ColumnConfig, get_display_length
+from table_printer import (
+    BaseRow, BaseTable,
+    ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, get_display_length
+)
 from table_printer_consts import BoxDrawingChar
 
 
@@ -142,6 +145,30 @@ def test_table_with_customized_row_separator():
         print(line)
 
 
+def test_table_with_conditional_formatting():
+    print('test print table with conditional formatting')
+
+    @dataclass
+    class RowConditionalFormatExample(BaseRow):
+        RowId: int = None
+        FmtContain: str = 'NA'
+        __FmtContain_config = ColumnConfig(conditional_format=CondFmtContain(contain_target='abc'))
+        FmtExactMatch: str = 'NA'
+        __FmtExactMatch_config = ColumnConfig(conditional_format=CondFmtExactMatch(match_target='ok'))
+
+    class TableConditionalFormatExample(BaseTable):
+        row_type = RowConditionalFormatExample
+
+    table = TableConditionalFormatExample()
+    rows = [
+        RowConditionalFormatExample(RowId=1, FmtContain='Say hello', FmtExactMatch='ok'),
+        RowConditionalFormatExample(RowId=2, FmtContain='Say abc', FmtExactMatch='fail'),
+    ]
+    for row in rows:
+        table.insert_row(row)
+    table.print_table()
+
+
 if __name__ == '__main__':
     print('test_table_printer START', '=' * 50)
 
@@ -184,3 +211,4 @@ if __name__ == '__main__':
 
     test_table_with_order()
     test_table_with_customized_row_separator()
+    test_table_with_conditional_formatting()
