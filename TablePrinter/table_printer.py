@@ -5,6 +5,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, TypeVar
 
+from color_xterm_256 import ColorXTerm256
+
 
 class ColumnAlignment(str, Enum):
     CENTER = '^'
@@ -27,6 +29,7 @@ class CondFmtContain(ConditionalFormat):
 
     def apply_format(self, text: any) -> str:
         text = str(text)
+        return f"\033[;48;5;{ColorXTerm256.RED}m{text}\033[0m"
         len_space_l = len(text) - len(text.lstrip())
         len_space_r = len(text) - len(text.rstrip())
         return f'{"*" * len_space_l}{text.strip()}{"*" * len_space_r}'
