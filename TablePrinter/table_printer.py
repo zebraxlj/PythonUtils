@@ -376,8 +376,8 @@ class BaseTable:
         col_align = [self.row_type.get_config(attr).align for attr in col_order]
         col_data = [self.row_type.get_col_header_map()[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
-        ret = f' {self.CHAR_COL_SEP} '.join(
-            f'{col_val:{align}{width-get_display_length(str(col_val))+len(str(col_val))}}'
+        ret = self.CHAR_COL_SEP.join(
+            f' {col_val:{align}{width-get_display_length(str(col_val))+len(str(col_val))}} '
             for col_val, align, width in zip(col_data, col_align, col_disp_len)
         )
         return ret
@@ -412,9 +412,10 @@ class BaseTable:
         col_align = [self.row_type.get_config(attr).align for attr in col_order]
         col_data = [sep_h * self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
-        col_sep = f'{sep_h}{sep_v}{sep_h}' if dense else f' {sep_v} '
+        col_pad = sep_h if dense else ' '
+        col_sep = sep_v
         ret = col_sep.join(
-            f'{col_val:{align}{width-get_display_length(str(col_val))+len(str(col_val))}}'
+            f'{col_pad}{col_val:{align}{width-get_display_length(str(col_val))+len(str(col_val))}}{col_pad}'
             for col_val, align, width in zip(col_data, col_align, col_disp_len)
         )
         return ret
@@ -430,11 +431,11 @@ class BaseTable:
         tokens = []
         for text, config, width in zip(col_data, col_config, col_disp_len):
             need_conf_fmt = config.conditional_format is not None and config.conditional_format.is_condition_match(text)
-            text = f'{str(text):{config.align}{width-get_display_length(str(text))+len(str(text))}}'
+            text = f' {str(text):{config.align}{width-get_display_length(str(text))+len(str(text))}} '
             if need_conf_fmt:
                 text = config.conditional_format.apply_format(text)
             tokens.append(text)
-        return f' {self.CHAR_COL_SEP} '.join(tokens)
+        return self.CHAR_COL_SEP.join(tokens)
 
     def insert_row(self, row_data: TBaseRow):
         """ insert a row_data in to the row_list """
