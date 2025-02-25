@@ -5,6 +5,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, TypeVar
 
+from color_xterm_256 import ColorXTerm256
+
 
 class ColumnAlignment(str, Enum):
     CENTER = '^'
@@ -13,7 +15,22 @@ class ColumnAlignment(str, Enum):
 
 
 @dataclass
+class FontFormat:
+    BgColor: ColorXTerm256 = None
+    FgColor: ColorXTerm256 = None
+
+    def apply_format(self, text: str) -> str:
+        if self.BgColor and isinstance(self.BgColor, ColorXTerm256):
+            text = f'\033[;48;5;{self.BgColor}m{text}\033[0m'
+        if self.BgColor and isinstance(self.FgColor, ColorXTerm256):
+            text = f'\033[;38;5;{self.BgColor}m{text}\033[0m'
+        return text
+
+
+@dataclass
 class ConditionalFormat:
+    format: FontFormat = FontFormat(BgColor=ColorXTerm256.RED, FgColor=ColorXTerm256.WHITE)
+
     def apply_format(self, text: str) -> str:
         raise NotImplementedError
 
@@ -26,7 +43,9 @@ class CondFmtContain(ConditionalFormat):
     contain_target: str = None
 
     def apply_format(self, text: any) -> str:
+        return self.format.apply_format(text)
         text = str(text)
+        return f"\033[;48;5;{ColorXTerm256.RED}m{text}\033[0m"
         len_space_l = len(text) - len(text.lstrip())
         len_space_r = len(text) - len(text.rstrip())
         return f'{"*" * len_space_l}{text.strip()}{"*" * len_space_r}'
@@ -42,6 +61,7 @@ class CondFmtExactMatch(ConditionalFormat):
     match_target: str = None
 
     def apply_format(self, text: any) -> str:
+        return self.format.apply_format(text)
         text = str(text)
         len_space_l = text.index(self.match_target)
         len_space_r = len(text) - len_space_l - len(self.match_target)
@@ -51,6 +71,9 @@ class CondFmtExactMatch(ConditionalFormat):
         if self.match_target is None:
             raise ValueError('match_target is not defined')
         return text == self.match_target
+
+
+TConditionalFormat = TypeVar('TConditionalFormat', bound=ConditionalFormat)
 
 
 @dataclass
@@ -439,7 +462,7 @@ class BaseTable:
 
     def insert_row(self, row_data: TBaseRow):
         """ insert a row_data in to the row_list """
-        if not isinstance(row_data, self.row_type):
+        if type(row_data) is not self.row_type:
             raise TypeError(f'row_data type: {type(row_data)} does not match {self.row_type}')
         self.row_list.append(row_data)
         self._update_col_max_disp_len(row_data=row_data)
