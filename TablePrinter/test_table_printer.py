@@ -1,7 +1,7 @@
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Final
+from typing import ClassVar
 
 from table_printer import (
     BaseRow, BaseTable,
@@ -22,16 +22,16 @@ class RowExample(BaseRow):
     ColInt: int = -1
 
     ColStr: str = 'N/A'
-    __ColStr_config: Final[ColumnConfig] = ColumnConfig(alias='EN column alias', align=ColumnAlignment.LEFT, hide=False)
+    __ColStr_config: ClassVar[ColumnConfig] = ColumnConfig(alias='EN column alias', align=ColumnAlignment.LEFT, hide=False)
 
     ColStrCn: str = 'N/A'
-    __ColStrCn_config: Final[ColumnConfig] = ColumnConfig(alias='中文别名', hide=True)
+    __ColStrCn_config: ClassVar[ColumnConfig] = ColumnConfig(alias='中文别名', hide=True)
 
     ColHidden: str = 'N/A'
-    __ColHidden_config: Final[ColumnConfig] = ColumnConfig(alias='不应该能看到这列', hide=True)
+    __ColHidden_config: ClassVar[ColumnConfig] = ColumnConfig(alias='不应该能看到这列', hide=True)
 
     LastModifiedDate: datetime = field(default_factory=datetime.now)  # test datetime column display
-    __LastModifiedDate_config: Final[ColumnConfig] = ColumnConfig(
+    __LastModifiedDate_config: ClassVar[ColumnConfig] = ColumnConfig(
         alias='最后修改日期', hide=False, format='%Y-%m-%d %H:%M:%S'
     )
 
@@ -44,13 +44,13 @@ class TableExample(BaseTable):
 @dataclass
 class RowEmployeeExample(BaseRow):
     Name: str = ''
-    __Name_config: Final[ColumnConfig] = ColumnConfig(alias='名字')
+    __Name_config: ClassVar[ColumnConfig] = ColumnConfig(alias='名字')
     Age: int = None
-    __Age_config: Final[ColumnConfig] = ColumnConfig(alias='年龄')
+    __Age_config: ClassVar[ColumnConfig] = ColumnConfig(alias='年龄')
     Salary: int = None
-    __Salary_config: Final[ColumnConfig] = ColumnConfig(alias='工资')
+    __Salary_config: ClassVar[ColumnConfig] = ColumnConfig(alias='工资')
     InsertDt: datetime = field(default_factory=datetime.now)
-    __InsertDt_config: Final[ColumnConfig] = ColumnConfig(hide=False, format='%H:%M:%S.%f')
+    __InsertDt_config: ClassVar[ColumnConfig] = ColumnConfig(hide=False, format='%H:%M:%S.%f')
 
 
 class TableEmployeeExample(BaseTable):

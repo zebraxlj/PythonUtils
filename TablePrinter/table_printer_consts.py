@@ -130,3 +130,6 @@ class BoxDrawingChar(str, Enum):
     LIGHT_UP_AND_HEAVY_DOWN = '\u257D'
     HEAVY_LEFT_AND_LIGHT_RIGHT = '\u257E'
     HEAVY_UP_AND_LIGHT_DOWN = '\u257F'
+
+    def __str__(self):
+        return self.value

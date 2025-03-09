@@ -1,6 +1,6 @@
 import unicodedata
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Type, TypeVar
@@ -12,6 +12,9 @@ class ColumnAlignment(str, Enum):
     CENTER = '^'
     LEFT = '<'
     RIGHT = '>'
+
+    def __str__(self):
+        return self.value
 
 
 @dataclass
@@ -29,7 +32,7 @@ class FontFormat:
 
 @dataclass
 class ConditionalFormat:
-    format: FontFormat = FontFormat(BgColor=ColorXTerm256.RED, FgColor=ColorXTerm256.WHITE)
+    format: FontFormat = field(default_factory=lambda: FontFormat(BgColor=ColorXTerm256.RED, FgColor=ColorXTerm256.WHITE))
 
     def apply_format(self, text: str) -> str:
         raise NotImplementedError
