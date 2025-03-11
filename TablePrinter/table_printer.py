@@ -3,7 +3,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Type, TypeVar
+from typing import Dict, List, Optional, TypeVar
 
 from color_xterm_256 import ColorXTerm256
 
@@ -23,10 +23,10 @@ class FontFormat:
     FgColor: ColorXTerm256 = None
 
     def apply_format(self, text: str) -> str:
-        if self.BgColor and isinstance(self.BgColor, ColorXTerm256):
+        if isinstance(self.BgColor, ColorXTerm256):
             text = f'\033[;48;5;{self.BgColor}m{text}\033[0m'
-        if self.BgColor and isinstance(self.FgColor, ColorXTerm256):
-            text = f'\033[;38;5;{self.BgColor}m{text}\033[0m'
+        if isinstance(self.FgColor, ColorXTerm256):
+            text = f'\033[;38;5;{self.FgColor}m{text}\033[0m'
         return text
 
 
@@ -92,7 +92,7 @@ class ColumnConfig:
 
     align: Optional[ColumnAlignment] = ColumnAlignment.CENTER
 
-    conditional_format: Optional[Type[ConditionalFormat]] = None
+    conditional_format: Optional[TConditionalFormat] = None
 
     format: Optional[str] = None
 
