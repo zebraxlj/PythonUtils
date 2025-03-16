@@ -3,11 +3,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import ClassVar
 
-from table_printer import (
+from TablePrinter.table_printer import (
     BaseRow, BaseTable,
     ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, get_display_length
 )
-from table_printer_consts import BoxDrawingChar
+from TablePrinter.table_printer_consts import BoxDrawingChar
 
 
 @dataclass
@@ -22,7 +22,9 @@ class RowExample(BaseRow):
     ColInt: int = -1
 
     ColStr: str = 'N/A'
-    __ColStr_config: ClassVar[ColumnConfig] = ColumnConfig(alias='EN column alias', align=ColumnAlignment.LEFT, hide=False)
+    __ColStr_config: ClassVar[ColumnConfig] = ColumnConfig(
+        alias='EN column alias', align=ColumnAlignment.LEFT, hide=False
+    )
 
     ColStrCn: str = 'N/A'
     __ColStrCn_config: ClassVar[ColumnConfig] = ColumnConfig(alias='中文别名', hide=True)
@@ -169,7 +171,7 @@ def test_table_with_conditional_formatting():
     table.print_table()
 
 
-if __name__ == '__main__':
+def test_table_printer():
     print('test_table_printer START', '=' * 50)
 
     if 1:  # RowExample Test - class method

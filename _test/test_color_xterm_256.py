@@ -1,7 +1,7 @@
-from color_xterm_256 import ColorXTerm256
+from ColorHelper.color_xterm_256 import ColorXTerm256
 
 
-if __name__ == '__main__':
+def test_color_xterm_256():
     for row in range(8):
         color = ColorXTerm256(row)
         color_light = ColorXTerm256(row + 8)

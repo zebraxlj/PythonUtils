@@ -5,7 +5,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, TypeVar
 
-from color_xterm_256 import ColorXTerm256
+from ColorHelper.color_xterm_256 import ColorXTerm256
 
 
 class ColumnAlignment(str, Enum):
@@ -32,7 +32,9 @@ class FontFormat:
 
 @dataclass
 class ConditionalFormat:
-    format: FontFormat = field(default_factory=lambda: FontFormat(BgColor=ColorXTerm256.RED, FgColor=ColorXTerm256.WHITE))
+    format: FontFormat = field(
+        default_factory=lambda: FontFormat(BgColor=ColorXTerm256.RED, FgColor=ColorXTerm256.WHITE)
+    )
 
     def apply_format(self, text: str) -> str:
         raise NotImplementedError
