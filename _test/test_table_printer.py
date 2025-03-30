@@ -5,7 +5,7 @@ from typing import ClassVar
 
 from TablePrinter.table_printer import (
     BaseRow, BaseTable,
-    ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, get_display_length
+    ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, get_display_ansi_width
 )
 from TablePrinter.table_printer_consts import BoxDrawingChar
 
@@ -179,6 +179,45 @@ def test_table_with_conditional_formatting():
     table.print_table()
 
 
+def test_table_with_href():
+    print('test print table with url')
+
+    @dataclass
+    class RowHRefExample(BaseRow):
+        WebsiteName: str = 'NA'
+        WebsiteName_href: str = ''
+
+    class TableHRefExample(BaseTable):
+        row_type = RowHRefExample
+
+    table_href = TableHRefExample()
+    rows = [
+        RowHRefExample(WebsiteName='Baidu href', WebsiteName_href='https://www.baidu.com'),
+        RowHRefExample(WebsiteName='Bing href', WebsiteName_href='https://www.bing.com'),
+    ]
+    for row in rows:
+        table_href.insert_row(row)
+    table_href.print_table()
+
+    @dataclass
+    class RowUrlExample(BaseRow):
+        WebsiteName: str = 'NA'
+        WebsiteName_url: str = ''
+
+    class TableUrlExample(BaseTable):
+        row_type = RowUrlExample
+
+    table_url = TableUrlExample()
+    rows = [
+        RowUrlExample(WebsiteName='Baidu url', WebsiteName_url='https://www.baidu.com'),
+        RowUrlExample(WebsiteName='Bing url', WebsiteName_url='https://www.bing.com'),
+        RowUrlExample(WebsiteName='Blank url'),
+    ]
+    for row in rows:
+        table_url.insert_row(row)
+    table_url.print_table()
+
+
 def test_table_printer():
     print('test_table_printer START', '=' * 50)
 
@@ -195,15 +234,15 @@ def test_table_printer():
         print(test_row.get_col_value_disp_len())
 
     if 1:  # calculate display length for wide and narrow characters
-        print('get_display_length Test - wide narrow character display width')
+        print('get_display_ansi_width Test - wide narrow character display width')
         msg = 'aF'
-        print(msg, get_display_length(msg))
+        print(msg, get_display_ansi_width(msg))
         msg = '中'
-        print(msg, get_display_length(msg))
+        print(msg, get_display_ansi_width(msg))
         msg = '中a'
-        print(msg, get_display_length(msg))
+        print(msg, get_display_ansi_width(msg))
         msg = str(1)
-        print(msg, get_display_length(msg))
+        print(msg, get_display_ansi_width(msg))
 
     if 1:
         print('TableExample Test')
@@ -222,3 +261,4 @@ def test_table_printer():
     test_table_with_order()
     test_table_with_customized_row_separator()
     test_table_with_conditional_formatting()
+    test_table_with_href()
