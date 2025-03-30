@@ -153,18 +153,26 @@ def test_table_with_conditional_formatting():
     @dataclass
     class RowConditionalFormatExample(BaseRow):
         RowId: int = None
-        FmtContain: str = 'NA'
-        __FmtContain_config = ColumnConfig(conditional_format=CondFmtContain(contain_target='abc'))
-        FmtExactMatch: str = 'NA'
-        __FmtExactMatch_config = ColumnConfig(conditional_format=CondFmtExactMatch(match_target='ok'))
+        FmtContainStr: str = 'NA'
+        __FmtContainStr_config = ColumnConfig(conditional_format=CondFmtContain(contain_target='abc'))
+        FmtExactMatchStr: str = 'NA'
+        __FmtExactMatchStr_config = ColumnConfig(conditional_format=CondFmtExactMatch(match_target='ok'))
+        FmtExactMatchBool: str = 'NA'
+        __FmtExactMatchBool_config = ColumnConfig(conditional_format=CondFmtExactMatch(match_target=True))
+        FmtExactMatchInt: str = 'NA'
+        __FmtExactMatchInt_config = ColumnConfig(conditional_format=CondFmtExactMatch(match_target=-1))
 
     class TableConditionalFormatExample(BaseTable):
         row_type = RowConditionalFormatExample
 
     table = TableConditionalFormatExample()
     rows = [
-        RowConditionalFormatExample(RowId=1, FmtContain='Say hello', FmtExactMatch='ok'),
-        RowConditionalFormatExample(RowId=2, FmtContain='Say abc', FmtExactMatch='fail'),
+        RowConditionalFormatExample(
+            RowId=1, FmtContainStr='Say hello', FmtExactMatchStr='ok', FmtExactMatchBool=False, FmtExactMatchInt=-1
+        ),
+        RowConditionalFormatExample(
+            RowId=2, FmtContainStr='Say abc', FmtExactMatchStr='fail', FmtExactMatchBool=True, FmtExactMatchInt=1
+        ),
     ]
     for row in rows:
         table.insert_row(row)
