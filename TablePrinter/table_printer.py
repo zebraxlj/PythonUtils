@@ -36,10 +36,10 @@ class ConditionalFormat:
         default_factory=lambda: FontFormat(BgColor=ColorXTerm256.RED, FgColor=ColorXTerm256.WHITE)
     )
 
-    def apply_format(self, text: str) -> str:
+    def apply_format(self, text: any) -> str:
         raise NotImplementedError
 
-    def is_condition_match(self, text: str):
+    def is_condition_match(self, text: any) -> bool:
         raise NotImplementedError
 
 
@@ -55,7 +55,7 @@ class CondFmtContain(ConditionalFormat):
         len_space_r = len(text) - len(text.rstrip())
         return f'{"*" * len_space_l}{text.strip()}{"*" * len_space_r}'
 
-    def is_condition_match(self, text: str):
+    def is_condition_match(self, text: str) -> bool:
         if self.contain_target is None:
             raise ValueError('contain_target is not defined')
         return self.contain_target in text
@@ -63,7 +63,7 @@ class CondFmtContain(ConditionalFormat):
 
 @dataclass
 class CondFmtExactMatch(ConditionalFormat):
-    match_target: str = None
+    match_target: any = None
 
     def apply_format(self, text: any) -> str:
         return self.format.apply_format(text)
@@ -72,10 +72,10 @@ class CondFmtExactMatch(ConditionalFormat):
         len_space_r = len(text) - len_space_l - len(self.match_target)
         return f'{"*" * len_space_l}{self.match_target}{"*" * len_space_r}'
 
-    def is_condition_match(self, text: str):
+    def is_condition_match(self, text: str) -> bool:
         if self.match_target is None:
             raise ValueError('match_target is not defined')
-        return text == self.match_target
+        return text == str(self.match_target)
 
 
 TConditionalFormat = TypeVar('TConditionalFormat', bound=ConditionalFormat)
@@ -214,7 +214,7 @@ class BaseRow:
             cls.__init_class_col_attributes()
         return cls.__COL_HEADER_MAP
 
-    def get_col_value_disp(self) -> Dict[str, int]:
+    def get_col_value_disp(self) -> Dict[str, str]:
         """ return the map between column attribute name and column formatted content
         Returns:
             Dict[str, int]:
@@ -229,7 +229,7 @@ class BaseRow:
                 if col_config.format:
                     ret[attr_name] = attr_val.strftime(col_config.format)
                     continue
-            ret[attr_name] = self.__getattribute__(attr_name)
+            ret[attr_name] = str(self.__getattribute__(attr_name))
         return ret
 
     def get_col_value_disp_len(self) -> Dict[str, int]:
