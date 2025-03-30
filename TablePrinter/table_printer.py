@@ -1,3 +1,4 @@
+import sys
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -48,7 +49,7 @@ class CondFmtContain(ConditionalFormat):
     contain_target: str = None
 
     def apply_format(self, text: any) -> str:
-        return self.format.apply_format(text)
+        return self.format.apply_format(str(text))
         text = str(text)
         return f"\033[;48;5;{ColorXTerm256.RED}m{text}\033[0m"
         len_space_l = len(text) - len(text.lstrip())
@@ -140,7 +141,7 @@ class BaseRow:
         for attr_name in cls.__COL_ATTR_NAMES:
             col_config: ColumnConfig = cls.get_config(attr_name)
             col_header = col_config.alias if col_config.alias else attr_name
-            cls.__COL_HEADER_DISP_LEN_MAP[attr_name] = get_display_length(col_header)
+            cls.__COL_HEADER_DISP_LEN_MAP[attr_name] = get_display_ansi_width(col_header)
             cls.__COL_HEADER_LEN_MAP[attr_name] = len(col_header)
             cls.__COL_HEADER_MAP[attr_name] = col_header
 
@@ -151,6 +152,14 @@ class BaseRow:
         python name mangling
         """
         return f'{cls.__GET_CONFIG_PREFIX()}{col_name}{cls.__GET_CONFIG_SUFFIX()}'
+
+    @classmethod
+    def _get_href_attr_name(cls, col_name: str) -> str:
+        return f'{col_name}_href'
+
+    @classmethod
+    def _get_url_attr_name(cls, col_name: str) -> str:
+        return f'{col_name}_url'
 
     @classmethod
     def _is_col_data_attr(cls, attr_name: str) -> bool:
@@ -188,6 +197,25 @@ class BaseRow:
         return False
 
     @classmethod
+    def _is_col_href_attr_exist(cls, attr_name: str) -> bool:
+        is_col_href_attr_exist = False
+        is_col_url_attr_exist = False
+        href_attr_name = cls._get_href_attr_name(attr_name)
+        url_attr_name = cls._get_url_attr_name(attr_name)
+        if href_attr_name in cls.__dict__:
+            is_col_href_attr_exist = True
+        if url_attr_name in cls.__dict__:
+            is_col_url_attr_exist = True
+
+        if is_col_href_attr_exist and is_col_url_attr_exist:
+            raise NotImplementedError(
+                f'暂时不支持同时给定 href 和 url 的情况。当前列: {attr_name}, '
+                f'href attribute: {is_col_href_attr_exist}, '
+                f'url attribute: {is_col_url_attr_exist}'
+            )
+        return is_col_href_attr_exist or is_col_url_attr_exist
+
+    @classmethod
     def get_col_attr_names(cls) -> List[str]:
         """ return the list of all column attribute names (no config, just attribute names) """
         if cls.__COL_ATTR_NAMES is None:
@@ -215,9 +243,9 @@ class BaseRow:
         return cls.__COL_HEADER_MAP
 
     def get_col_value_disp(self) -> Dict[str, str]:
-        """ return the map between column attribute name and column formatted content
+        """ return the map between column attribute name and column formatted content that's displayed
         Returns:
-            Dict[str, int]:
+            Dict[str, str]:
                 key: column_attribute_name
                 value: formatted column content if format is provided; otherwise, original content
         """
@@ -232,6 +260,29 @@ class BaseRow:
             ret[attr_name] = str(self.__getattribute__(attr_name))
         return ret
 
+    def get_col_value_true(self) -> Dict[str, str]:
+        """ return the map between column attribute name and column content that's printed to the terminal, including 
+        hidden content such as href
+
+        Returns:
+            Dict[str, str]:
+            key: column_attribute_name
+            value: column content if href is provided; otherwise, original content
+        """
+        ret = dict()
+        ret = self.get_col_value_disp()
+        for attr_name in self.get_col_attr_names():
+            # 处理 href
+            if can_display_href() and self._is_col_href_attr_exist(attr_name):
+                href_attr_name = self._get_href_attr_name(attr_name)
+                url_attr_name = self._get_url_attr_name(attr_name)
+                href = self.__dict__.get(href_attr_name, self.__dict__.get(url_attr_name, None))
+                if href is None:
+                    continue
+                attr_value_original = ret[attr_name]
+                ret[attr_name] = f"\033]8;;{href}\033\\{attr_value_original}\033]8;;\033\\"
+        return ret
+
     def get_col_value_disp_len(self) -> Dict[str, int]:
         """return the map between column attribute name and column content display length
         Returns:
@@ -241,7 +292,7 @@ class BaseRow:
         ret = dict()
         col_value_disp: dict = self.get_col_value_disp()
         for attr_name in self.get_col_attr_names():
-            ret[attr_name] = get_display_length(str(col_value_disp[attr_name]))
+            ret[attr_name] = get_display_ansi_width(str(col_value_disp[attr_name]))
         return ret
 
     @classmethod
@@ -405,7 +456,7 @@ class BaseTable:
         col_data = [self.row_type.get_col_header_map()[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
         ret = self.CHAR_COL_SEP.join(
-            f' {col_val:{align}{width-get_display_length(str(col_val))+len(str(col_val))}} '
+            f' {col_val:{align}{width-get_display_ansi_width(str(col_val))+len(str(col_val))}} '
             for col_val, align, width in zip(col_data, col_align, col_disp_len)
         )
         return ret
@@ -443,7 +494,7 @@ class BaseTable:
         col_pad = sep_h if dense else ' '
         col_sep = sep_v
         ret = col_sep.join(
-            f'{col_pad}{col_val:{align}{width-get_display_length(str(col_val))+len(str(col_val))}}{col_pad}'
+            f'{col_pad}{col_val:{align}{width-get_display_ansi_width(str(col_val))+len(str(col_val))}}{col_pad}'
             for col_val, align, width in zip(col_data, col_align, col_disp_len)
         )
         return ret
@@ -451,18 +502,30 @@ class BaseTable:
     def get_table_line_str(self, row_data: TBaseRow) -> str:
         """ generate a row line of the given row_data for the output table """
         col_order = self.row_type.get_col_attr_names()
-        col_config = [self.row_type.get_config(attr) for attr in col_order]
+        col_config = {attr: self.row_type.get_config(attr) for attr in col_order}
         col_data_disp = row_data.get_col_value_disp()
-        col_data = [col_data_disp[attr] for attr in col_order]
-        col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
+        col_data_true = row_data.get_col_value_true()
+        col_disp_len = {attr: self.__COL_MAX_DISP_LEN[attr] for attr in col_order}
 
-        tokens = []
-        for text, config, width in zip(col_data, col_config, col_disp_len):
-            need_conf_fmt = config.conditional_format is not None and config.conditional_format.is_condition_match(text)
-            text = f' {str(text):{config.align}{width-get_display_length(str(text))+len(str(text))}} '
+        token_dict = {}
+        for attr_name in col_order:
+            text_disp, text_print = col_data_disp[attr_name], col_data_true[attr_name]
+            config: ColumnConfig = col_config[attr_name]
+            width = col_disp_len[attr_name]
+            need_conf_fmt = (
+                config.conditional_format is not None and config.conditional_format.is_condition_match(text_disp)
+            )
+
+            text_disp_old = text_disp
+            # 1 wide char takes 2 ansi space, and the width is in ansi space, so padding space need to be recalculated
+            width = width-get_display_ansi_width(str(text_disp))+len(str(text_disp))
+            text_disp = f' {str(text_disp):{config.align}{width}} '
+            text_disp = text_disp.replace(text_disp_old, text_print)
+
             if need_conf_fmt:
-                text = config.conditional_format.apply_format(text)
-            tokens.append(text)
+                text_disp = config.conditional_format.apply_format(text_disp)
+            token_dict[attr_name] = text_disp
+        tokens = [token_dict[attr_name] for attr_name in col_order]
         return self.CHAR_COL_SEP.join(tokens)
 
     def insert_row(self, row_data: TBaseRow):
@@ -490,7 +553,24 @@ class BaseTable:
         print(output_str, '\n', sep='')
 
 
-def get_display_length(s: str) -> int:
+def can_display_href() -> bool:
+    """ check if the current environment can display href
+    Returns:
+        bool: True if href is supported
+    """
+    if sys.platform == 'win32':
+        # powershell 不支持
+        return False
+    elif sys.platform == 'linux':
+        return True
+    elif sys.platform == 'darwin':
+        # macOS 默认 Terminal 不支持
+        return False
+    else:
+        raise RuntimeError("Unsupported platform")
+
+
+def get_display_ansi_width(s: str) -> int:
     """ return the display length of the given string. Any wide characters in the input string takes 2 spaces """
     length = 0
     for char in s:
