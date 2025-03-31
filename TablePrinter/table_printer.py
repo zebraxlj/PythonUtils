@@ -135,6 +135,17 @@ class BaseRow:
             attr for attr in cls.__annotations__
             if not attr.startswith('__') and cls._is_col_data_attr(attr) and not cls._is_col_hidden(attr)
         ]
+        # filter out href and url attributes if current environment can display href with name column
+        if can_display_href():
+            href_attr_to_remove = [
+                attr for attr in cls.__COL_ATTR_NAMES
+                if (
+                    can_display_href()
+                    and (cls._is_col_href_attr(attr) or cls._is_col_url_attr(attr))
+                    and cls._is_col_href_attr_with_base_col(attr)
+                )
+            ]
+            cls.__COL_ATTR_NAMES = [attr for attr in cls.__COL_ATTR_NAMES if attr not in href_attr_to_remove]
         cls.__COL_HEADER_DISP_LEN_MAP = dict()
         cls.__COL_HEADER_LEN_MAP = dict()
         cls.__COL_HEADER_MAP = dict()
@@ -182,6 +193,46 @@ class BaseRow:
             bool: True if matches config attribute name pattern
         """
         return attr_name.startswith(cls.__GET_CONFIG_PREFIX()) and attr_name.endswith(cls.__GET_CONFIG_SUFFIX())
+
+    @classmethod
+    def _is_col_href_attr(cls, attr_name: str) -> bool:
+        """ check if the given name is an href field
+        Args:
+            attr_name (str): an attribute name
+        Returns:
+            bool: True if matches href attribute name pattern
+        """
+        return attr_name.endswith('_href')
+
+    @classmethod
+    def _is_col_url_attr(cls, attr_name: str) -> bool:
+        """ check if the given name is an url field
+        Args:
+            attr_name (str): an attribute name
+        Returns:
+            bool: True if matches url attribute name pattern
+        """
+        return attr_name.endswith('_url')
+
+    @classmethod
+    def _is_col_href_attr_with_base_col(cls, attr_name: str) -> bool:
+        """ check if the given name is an href field
+        Args:
+            attr_name (str): an attribute name
+        Returns:
+            bool: True if matches href attribute name pattern
+        """
+        if not cls._is_col_href_attr(attr_name) and not cls._is_col_url_attr(attr_name):
+            raise ValueError(f'attr_name={attr_name} is not a href field')
+        if cls._is_col_href_attr(attr_name):
+            base_col_attr = attr_name[:-len('_href')]
+        elif cls._is_col_url_attr(attr_name):
+            base_col_attr = attr_name[:-len('_url')]
+        else:
+            raise NotImplementedError(f'attr_name={attr_name} is not supported')
+        if base_col_attr in cls.__COL_ATTR_NAMES:
+            return True
+        return False
 
     @classmethod
     def _is_col_hidden(cls, attr_name: str) -> bool:
@@ -269,7 +320,6 @@ class BaseRow:
             key: column_attribute_name
             value: column content if href is provided; otherwise, original content
         """
-        ret = dict()
         ret = self.get_col_value_disp()
         for attr_name in self.get_col_attr_names():
             # 处理 href
