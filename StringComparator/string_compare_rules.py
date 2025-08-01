@@ -16,6 +16,10 @@ class StringCompareRuleSimple:
             raise ValueError('compare_keywords cannot be empty')
         if len(self.keywords) > 1 and not self.logic:
             raise ValueError('compare_rule is required when len(self.compare_keywords) > 1')
+        if isinstance(self.method, str):
+            self.method = CompareMethodEnum(self.method)
+        if isinstance(self.logic, str):
+            self.logic = BinaryLogicEnum(self.logic)
 
     def matches(self, line: str) -> bool:
         if not line:

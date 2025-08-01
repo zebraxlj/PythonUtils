@@ -2,7 +2,6 @@ import os
 import tomllib
 from typing import Dict, List, Optional
 
-from StringComparator.string_compare_dataclasses import BinaryLogicEnum, CompareMethodEnum
 from StringComparator.string_compare_rules import StringCompareRuleSimple
 
 
@@ -29,9 +28,6 @@ def parse_rule_file() -> Dict[str, List[StringCompareRuleSimple]]:
                 continue
             rule_objs = []
             for rule in rule_group:
-                if 'logic' in rule:
-                    rule['logic'] = BinaryLogicEnum(rule['logic'])
-                rule['method'] = CompareMethodEnum(rule['method'])
                 rule_objs.append(StringCompareRuleSimple(**rule))
             data[rule_group_name] = rule_objs
         return data
