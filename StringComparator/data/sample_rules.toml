@@ -1,0 +1,8 @@
+[[RuleGroup1]]
+method = "contain"
+keywords = ["Samson"]
+logic = "and"
+
+[[RuleGroup2]]
+method = "regex"
+keywords = [".*?\\[Samson.*?"]
