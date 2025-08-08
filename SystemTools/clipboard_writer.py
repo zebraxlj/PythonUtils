@@ -38,23 +38,42 @@ else:
 
 
 def copy_to_clipboard(text: str):
-    if sys.platform == 'win32':
-        copy_to_clipboard_windows(text)
-    elif sys.platform == 'linux':
-        try:
-            copy_to_clipboard_linux(text)
-            raise NotImplementedError('Linux 环境还没调通')
-        except Exception as e:
-            print('Linux 环境还没调通', e, sep='\n')
-    elif sys.platform == 'darwin':
-        try:
-            # macOS 方案（使用 pbcopy 命令）
-            subprocess.run(['pbcopy'], input=text.encode('utf-8'), check=True)
-            raise NotImplementedError('macOS 的还没测过')
-        except Exception as e:
-            print('macOS 的还没测过', e, sep='\n')
-    else:
-        raise RuntimeError("Unsupported platform")
+    try:
+        import tkinter as tk
+        root = tk.Tk()
+        root.withdraw()
+        root.clipboard_clear()
+        root.clipboard_append(text)
+        # 增加事件循环处理
+        root.update()
+        root.after(100, root.destroy)  # 延迟销毁确保操作完成
+        root.mainloop()  # 进入主事件循环
+    except Exception as e:
+        print(f'剪贴板写入失败：{e}')
+        # 调用系统剪贴板写入函数
+        if sys.platform == 'win32':
+            copy_to_clipboard_windows(text)
+        elif sys.platform == 'linux':
+            try:
+                copy_to_clipboard_linux(text)
+                raise NotImplementedError('Linux 环境备用方法还没调通')
+            except Exception as e:
+                print('Linux 环境还没调通', e, sep='\n')
+        elif sys.platform == 'darwin':
+            try:
+                # macOS 方案（使用 pbcopy 命令）
+                subprocess.run(['pbcopy'], input=text.encode('utf-8'), check=True)
+                raise NotImplementedError('macOS 备用方法还没测过')
+            except Exception as e:
+                print('macOS 的还没测过', e, sep='\n')
+        else:
+            raise RuntimeError("Unsupported platform")
+    finally:
+        if 'root' in locals():
+            try:
+                root.destroy()  # 确保窗口销毁
+            except tk.TclError:
+                pass
 
 
 def copy_to_clipboard_linux(text: str):
