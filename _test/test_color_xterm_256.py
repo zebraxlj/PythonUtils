@@ -6,10 +6,10 @@ def test_color_xterm_256():
         color = ColorXTerm256(row)
         color_light = ColorXTerm256(row + 8)
         print(
-            f"\033[48;5;{color}m{color.name:>15} \033[0m"
-            f"\033[48;5;{color_light}m {color_light.name:<15}\033[0m"
-            f"\033[38;5;{color}m{color.name:>15} \033[0m"
-            f"\033[38;5;{color_light}m {color_light.name:<15}\033[0m"
+            f"\033[48;5;{color}m{color.name:>8}{color:>2} \033[0m"
+            f"\033[48;5;{color_light}m {color_light:<3}{color_light.name:<15}\033[0m"
+            f"\033[38;5;{color}m{color.name:>8}{color:>2} \033[0m"
+            f"\033[38;5;{color_light}m {color_light:<3}{color_light.name:<15}\033[0m"
         )
     print()
 
