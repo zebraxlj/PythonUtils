@@ -1,13 +1,19 @@
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import ClassVar
 
-from TablePrinter.table_printer import (
+PROJ_PATH = str(Path(__file__).resolve().parent.parent)
+if PROJ_PATH not in sys.path:
+    sys.path.insert(0, PROJ_PATH)
+
+from TablePrinter.table_printer import (  # noqa: E402
     BaseRow, BaseTable,
     ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, get_display_ansi_width
 )
-from TablePrinter.table_printer_consts import BoxDrawingChar
+from TablePrinter.table_printer_consts import BoxDrawingChar  # noqa: E402
 
 
 @dataclass
@@ -262,3 +268,7 @@ def test_table_printer():
     test_table_with_customized_row_separator()
     test_table_with_conditional_formatting()
     test_table_with_href()
+
+
+if __name__ == '__main__':
+    test_table_printer()

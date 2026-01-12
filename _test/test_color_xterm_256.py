@@ -1,4 +1,11 @@
-from ColorHelper.color_xterm_256 import ColorXTerm256
+import sys
+from pathlib import Path
+
+PROJ_PATH = str(Path(__file__).resolve().parent.parent)
+if PROJ_PATH not in sys.path:
+    sys.path.insert(0, PROJ_PATH)
+
+from ColorHelper.color_xterm_256 import ColorXTerm256  # noqa: E402
 
 
 def test_color_xterm_256():
@@ -55,7 +62,6 @@ def test_color_xterm_256():
             ''.join([f"\033[;38;5;{color}m{color:^5}\033[0m" for color in row_colors])
         )
 
-    # for color in ColorXTerm256:
-    #     if color < 16:
-    #         continue
-    #     print(f"\033[;48;5;{color}m{color:^5}\033[0m")
+
+if __name__ == '__main__':
+    test_color_xterm_256()
