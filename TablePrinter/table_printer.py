@@ -8,6 +8,7 @@ from enum import Enum
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
 from ColorHelper.color_xterm_256 import ColorXTerm256
+from TablePrinter.table_printer_consts import BoxDrawingChar
 
 
 class ColumnAlignment(str, Enum):
@@ -72,6 +73,11 @@ class CondFmtExactMatch(ConditionalFormat):
         return self.format.apply_format(text)
 
     def is_condition_match(self, text: str) -> bool:
+        """检查 text 是否与 match_target 精确匹配。
+
+        注意: 比较时 match_target 会被 str() 转换后与 text 比较，
+        因此 match_target=True 实际匹配的是字符串 "True"，match_target=-1 匹配 "-1"。
+        """
         if self.match_target is None:
             raise ValueError('match_target is not defined')
         return text == str(self.match_target)
@@ -114,6 +120,15 @@ class BaseRow:
     _COL_HEADER_DISP_LEN_MAP: Optional[Dict[str, int]] = None
     _COL_HEADER_LEN_MAP: Optional[Dict[str, int]] = None
     _COL_HEADER_MAP: Optional[Dict[str, str]] = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # 每个子类独立持有缓存，避免沿 MRO 读到其他子类的缓存
+        cls._CONFIG_PREFIX = ''
+        cls._COL_ATTR_NAMES = None
+        cls._COL_HEADER_DISP_LEN_MAP = None
+        cls._COL_HEADER_LEN_MAP = None
+        cls._COL_HEADER_MAP = None
 
     @classmethod
     def __GET_CONFIG_PREFIX(cls):
@@ -298,13 +313,13 @@ class BaseRow:
         """
         ret = dict()
         for attr_name in self.get_col_attr_names():
-            attr_val = self.__getattribute__(attr_name)
+            attr_val = getattr(self, attr_name)
             if isinstance(attr_val, datetime):
                 col_config: ColumnConfig = self.get_config(attr_name)
                 if col_config.format:
                     ret[attr_name] = attr_val.strftime(col_config.format)
                     continue
-            ret[attr_name] = str(self.__getattribute__(attr_name))
+            ret[attr_name] = str(getattr(self, attr_name))
         return ret
 
     def get_col_value_true(self) -> Dict[str, str]:
@@ -363,7 +378,7 @@ class BaseRow:
         """
         ret = dict()
         for attr_name in self.get_col_attr_names():
-            ret[attr_name] = len(str(self.__getattribute__(attr_name)))
+            ret[attr_name] = len(str(getattr(self, attr_name)))
         return ret
 
     @classmethod
@@ -402,10 +417,10 @@ TBaseRow = TypeVar('TBaseRow', bound=BaseRow)
 class BaseTable(Generic[TBaseRow]):
     row_type: Type[TBaseRow]
     CHAR_LN: str = '\r\n'
-    CHAR_COL_SEP: str = '\u2502'
-    CHAR_ROW_SEP: str = '\u2500'
-    CHAR_HEADER_H_SEP: str = '\u2550'
-    CHAR_HEADER_V_SEP: str = '\u256a'
+    CHAR_COL_SEP: str = BoxDrawingChar.LIGHT_VERTICAL
+    CHAR_ROW_SEP: str = BoxDrawingChar.LIGHT_HORIZONTAL
+    CHAR_HEADER_H_SEP: str = BoxDrawingChar.DOUBLE_HORIZONTAL
+    CHAR_HEADER_V_SEP: str = BoxDrawingChar.VERTICAL_SINGLE_AND_HORIZONTAL_DOUBLE
 
     def __init__(self, *args, **kwargs):
         self.__COL_MAX_DISP_LEN: defaultdict = defaultdict(int)
@@ -440,7 +455,7 @@ class BaseTable(Generic[TBaseRow]):
             self.__COL_MAX_LEN[col] = max(self.__COL_MAX_LEN[col], val_len)
 
     def get_sorted_rows(
-            self, order_by: List[str], ascending: List[bool] = field(default_factory=lambda: [])
+            self, order_by: List[str], ascending: Optional[List[bool]] = None
             ) -> List[TBaseRow]:
         """ return the sorted row list of the current table
         Args:
@@ -484,7 +499,7 @@ class BaseTable(Generic[TBaseRow]):
                 # sorting order is all ascending or decending
                 ret = sorted(
                     ret,
-                    key=lambda row_data: [row_data.__getattribute__(attr_name) for attr_name in order_by],
+                    key=lambda row_data: [getattr(row_data, attr_name) for attr_name in order_by],
                     reverse=True if is_all_desc else False,
                 )
             else:
@@ -492,7 +507,7 @@ class BaseTable(Generic[TBaseRow]):
                 # When multiple records have the same key, their original order is preserved.
                 for attr_name, asc in zip(order_by[::-1], ascending[::-1]):
                     ret = sorted(
-                        ret, key=lambda row_data: row_data.__getattribute__(attr_name), reverse=not asc
+                        ret, key=lambda row_data: getattr(row_data, attr_name), reverse=not asc
                     )
         elif ascending:
             raise ValueError('ascending should not be passed without order_by')
@@ -622,7 +637,7 @@ def can_display_href() -> bool:
         # macOS 默认 Terminal 不支持
         return False
     else:
-        raise RuntimeError("Unsupported platform")
+        raise NotImplementedError("Unsupported platform")
 
 
 def get_display_ansi_width(s: str) -> int:
