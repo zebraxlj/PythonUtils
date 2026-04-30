@@ -25,10 +25,13 @@ class FontFormat:
     FgColor: ColorXTerm256 = ColorXTerm256.BLACK
 
     def apply_format(self, text: str) -> str:
+        codes = []
         if isinstance(self.BgColor, ColorXTerm256):
-            text = f'\033[;48;5;{self.BgColor}m{text}\033[0m'
+            codes.append(f'48;5;{self.BgColor}')
         if isinstance(self.FgColor, ColorXTerm256):
-            text = f'\033[;38;5;{self.FgColor}m{text}\033[0m'
+            codes.append(f'38;5;{self.FgColor}')
+        if codes:
+            return f'\033[{";".join(codes)}m{text}\033[0m'
         return text
 
 
@@ -54,11 +57,6 @@ class CondFmtContain(ConditionalFormat):
 
     def apply_format(self, text: Any) -> str:
         return self.format.apply_format(str(text))
-        text = str(text)
-        return f"\033[;48;5;{ColorXTerm256.RED}m{text}\033[0m"
-        len_space_l = len(text) - len(text.lstrip())
-        len_space_r = len(text) - len(text.rstrip())
-        return f'{"*" * len_space_l}{text.strip()}{"*" * len_space_r}'
 
     def is_condition_match(self, text: str) -> bool:
         if self.contain_target is None:
@@ -72,10 +70,6 @@ class CondFmtExactMatch(ConditionalFormat):
 
     def apply_format(self, text: Any) -> str:
         return self.format.apply_format(text)
-        text = str(text)
-        len_space_l = text.index(self.match_target)
-        len_space_r = len(text) - len_space_l - len(self.match_target)
-        return f'{"*" * len_space_l}{self.match_target}{"*" * len_space_r}'
 
     def is_condition_match(self, text: str) -> bool:
         if self.match_target is None:
@@ -635,11 +629,9 @@ def get_display_ansi_width(s: str) -> int:
     """ return the display length of the given string. Any wide characters in the input string takes 2 spaces """
     length = 0
     for char in s:
-        # Get the Unicode character category
-        category = unicodedata.category(char)
-        # Check for wide characters
-        if category in ('Lo'):
-            length += 2  # Wide characters take 2 spaces
+        # East_Asian_Width 'F'(Fullwidth) and 'W'(Wide) occupy 2 terminal columns
+        if unicodedata.east_asian_width(char) in ('F', 'W'):
+            length += 2
         else:
-            length += 1  # Narrow characters take 1 space
+            length += 1
     return length
