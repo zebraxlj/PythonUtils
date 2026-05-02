@@ -151,8 +151,7 @@ class BaseRow:
             href_attr_to_remove = [
                 attr for attr in cls._COL_ATTR_NAMES
                 if (
-                    can_display_href()
-                    and (cls._is_col_href_attr(attr) or cls._is_col_url_attr(attr))
+                    (cls._is_col_href_attr(attr) or cls._is_col_url_attr(attr))
                     and cls._is_col_href_attr_with_base_col(attr)
                 )
             ]
@@ -227,7 +226,7 @@ class BaseRow:
 
     @classmethod
     def _is_col_href_attr_with_base_col(cls, attr_name: str) -> bool:
-        """ check if the given name is an href field
+        """ check if the given name is a href field
         Args:
             attr_name (str): an attribute name
         Returns:
@@ -319,7 +318,7 @@ class BaseRow:
                 if col_config.format:
                     ret[attr_name] = attr_val.strftime(col_config.format)
                     continue
-            ret[attr_name] = str(getattr(self, attr_name))
+            ret[attr_name] = str(attr_val)
         return ret
 
     def get_col_value_true(self) -> Dict[str, str]:
@@ -492,25 +491,22 @@ class BaseTable(Generic[TBaseRow]):
         ret = self.row_list
 
         # sort data
-        if order_by:
-            is_all_asc: bool = all(ascending)
-            is_all_desc: bool = all(not asc for asc in ascending)
-            if is_all_asc or is_all_desc:
-                # sorting order is all ascending or decending
+        is_all_asc: bool = all(ascending)
+        is_all_desc: bool = all(not asc for asc in ascending)
+        if is_all_asc or is_all_desc:
+            # sorting order is all ascending or descending
+            ret = sorted(
+                ret,
+                key=lambda row_data: [getattr(row_data, attr_name) for attr_name in order_by],
+                reverse=True if is_all_desc else False,
+            )
+        else:
+            # according to https://docs.python.org/3/howto/sorting.html, sort is stable.
+            # When multiple records have the same key, their original order is preserved.
+            for attr_name, asc in zip(order_by[::-1], ascending[::-1]):
                 ret = sorted(
-                    ret,
-                    key=lambda row_data: [getattr(row_data, attr_name) for attr_name in order_by],
-                    reverse=True if is_all_desc else False,
+                    ret, key=lambda row_data: getattr(row_data, attr_name), reverse=not asc
                 )
-            else:
-                # according to https://docs.python.org/3/howto/sorting.html, sort is stable.
-                # When multiple records have the same key, their original order is preserved.
-                for attr_name, asc in zip(order_by[::-1], ascending[::-1]):
-                    ret = sorted(
-                        ret, key=lambda row_data: getattr(row_data, attr_name), reverse=not asc
-                    )
-        elif ascending:
-            raise ValueError('ascending should not be passed without order_by')
 
         return ret
 
