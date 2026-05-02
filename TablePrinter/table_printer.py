@@ -201,9 +201,7 @@ class BaseRow:
         Returns:
             bool: True if attribute is not config
         """
-        return (
-            not cls._is_config(attr_name)
-        )
+        return not cls._is_config(attr_name)
 
     @classmethod
     def _is_config(cls, attr_name: str) -> bool:
@@ -351,10 +349,7 @@ class BaseRow:
                 if href is None:
                     continue
                 attr_value_original = ret[attr_name]
-                if sys.platform == 'win32':
-                    ret[attr_name] = f"\x1b]8;;{href}\x1b\\{attr_value_original}\x1b]8;;\x1b\\"
-                elif sys.platform == 'linux':
-                    ret[attr_name] = f"\033]8;;{href}\033\\{attr_value_original}\033]8;;\033\\"
+                ret[attr_name] = f"\x1b]8;;{href}\x1b\\{attr_value_original}\x1b]8;;\x1b\\"
         return ret
 
     def get_col_value_disp_len(self) -> Dict[str, int]:
@@ -516,7 +511,7 @@ class BaseTable(Generic[TBaseRow]):
             # When multiple records have the same key, their original order is preserved.
             for attr_name, asc in zip(order_by[::-1], ascending[::-1]):
                 ret = sorted(
-                    ret, key=lambda row_data: getattr(row_data, attr_name), reverse=not asc
+                    ret, key=lambda row_data, _a=attr_name: getattr(row_data, _a), reverse=not asc
                 )
 
         return ret
