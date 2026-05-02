@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import unicodedata
@@ -9,6 +10,16 @@ from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
 from ColorHelper.color_xterm_256 import ColorXTerm256
 from TablePrinter.table_printer_consts import BoxDrawingChar
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(name)s.%(funcName)s: %(message)s'
+    ))
+    logger.addHandler(_handler)
 
 
 class ColumnAlignment(str, Enum):
@@ -351,7 +362,7 @@ class BaseRow:
         Returns:
             Dict[str, int]: key: column_attribute_name: value: column display length when cast to string type
         """
-        # print(f'{BaseRow.__name__}.{self.get_col_value_width.__name__}', self.__annotations__)
+        logger.debug(f'annotations:{self.__annotations__}')
         ret = dict()
         col_value_disp: dict = self.get_col_value_disp()
         for attr_name in self.get_col_attr_names():
@@ -438,7 +449,7 @@ class BaseTable(Generic[TBaseRow]):
         for d in self.row_list:
             for col, width in d.get_col_value_disp_len().items():
                 col_max_disp_len[col] = max(col_max_disp_len[col], width)
-        # print(f'{self.__class__.__name__}.{self.get_col_max_width.__name__} col_max_width:{col_max_width}')
+        logger.debug(f'col_max_disp_len:{col_max_disp_len}')
         return col_max_disp_len
 
     def _update_col_max_disp_len(self, row_data: TBaseRow) -> None:
@@ -512,7 +523,7 @@ class BaseTable(Generic[TBaseRow]):
 
     def get_table_header_str(self) -> str:
         """ generate the header line for the output table """
-        # print(f'{self.__class__.__name__}.{self.get_table_header_str.__name__} row_type:{self.row_type}')
+        logger.debug(f'row_type:{self.row_type}')
         col_order = self.row_type.get_col_attr_names()
         col_align = [self.row_type.get_config(attr).align for attr in col_order]
         col_data = [self.row_type.get_col_header_map()[attr] for attr in col_order]
@@ -605,7 +616,7 @@ class BaseTable(Generic[TBaseRow]):
             order_by (List[str], optional): see order_by in get_sorted_rows
             ascending (List[bool], optional): see ascending in get_sorted_rows
         """
-        # print(f'{self.__class__.__name__}.{self.to_table_str.__name__} data_len:{len(self.row_list)}')
+        logger.debug(f'data_len:{len(self.row_list)}')
         output_lines: List[str] = [self.get_table_header_str(), self.get_table_header_sep_str()]
 
         data_to_show = self.row_list if not order_by else self.get_sorted_rows(order_by, ascending)
