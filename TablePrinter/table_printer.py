@@ -426,6 +426,7 @@ class BaseTable(Generic[TBaseRow]):
     CHAR_ROW_SEP: str = BoxDrawingChar.LIGHT_HORIZONTAL
     CHAR_HEADER_H_SEP: str = BoxDrawingChar.DOUBLE_HORIZONTAL
     CHAR_HEADER_V_SEP: str = BoxDrawingChar.VERTICAL_SINGLE_AND_HORIZONTAL_DOUBLE
+    ENABLE_COLOR: bool = True
 
     def __init__(self, *args, **kwargs):
         self.__COL_MAX_DISP_LEN: defaultdict = defaultdict(int)
@@ -575,13 +576,15 @@ class BaseTable(Generic[TBaseRow]):
         col_data_true = row_data.get_col_value_true()
         col_disp_len = {attr: self.__COL_MAX_DISP_LEN[attr] for attr in col_order}
 
+        can_disp_color = self.ENABLE_COLOR and can_display_ansi_color()
         token_dict = {}
         for attr_name in col_order:
             text_disp, text_print = col_data_disp[attr_name], col_data_true[attr_name]
             config: ColumnConfig = col_config[attr_name]
             width = col_disp_len[attr_name]
             need_conf_fmt = (
-                config.conditional_format is not None
+                can_disp_color
+                and config.conditional_format is not None
                 and config.conditional_format != COND_FMT_DEFAULT
                 and config.conditional_format.is_condition_match(text_disp)
             )
@@ -621,6 +624,71 @@ class BaseTable(Generic[TBaseRow]):
 
         output_str = self.CHAR_LN.join(output_lines)
         print(output_str, '\n', sep='')
+
+
+_ansi_color_supported: Optional[bool] = None
+
+
+def can_display_ansi_color() -> bool:
+    """ 检查当前终端是否支持 ANSI 颜色转义序列。
+
+    Windows 上通过 ctypes 检测 ENABLE_VIRTUAL_TERMINAL_PROCESSING 标志，
+    若未启用则尝试主动启用。检测结果会被缓存，仅在首次调用时执行。
+
+    Returns:
+        bool: True if ANSI color is supported
+    """
+    global _ansi_color_supported
+    if _ansi_color_supported is not None:
+        return _ansi_color_supported
+
+    if sys.platform == 'win32':
+        _ansi_color_supported = _win32_enable_vt_processing()
+    elif sys.platform in ('linux', 'darwin'):
+        _ansi_color_supported = True
+    else:
+        raise NotImplementedError("Unsupported platform")
+
+    return _ansi_color_supported
+
+
+def _win32_enable_vt_processing() -> bool:
+    """ 检测并尝试启用 Windows console 的虚拟终端处理。
+
+    通过 GetConsoleMode 检查 ENABLE_VIRTUAL_TERMINAL_PROCESSING (0x0004) 标志，
+    若未启用则尝试用 SetConsoleMode 主动开启。
+
+    Returns:
+        bool: True if VT processing is enabled (or successfully enabled)
+    """
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        # STD_OUTPUT_HANDLE = -11
+        handle = kernel32.GetStdHandle(-11)
+        if handle == -1:
+            return False
+
+        mode = ctypes.c_ulong()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            # GetConsoleMode 失败，可能 stdout 被重定向到文件/管道
+            return False
+
+        ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        if mode.value & ENABLE_VIRTUAL_TERMINAL_PROCESSING:
+            # 已启用
+            return True
+
+        # 尝试启用
+        new_mode = mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        if kernel32.SetConsoleMode(handle, new_mode):
+            logger.debug('已通过 SetConsoleMode 启用 ENABLE_VIRTUAL_TERMINAL_PROCESSING')
+            return True
+
+        # 启用失败
+        return False
+    except Exception:
+        return False
 
 
 def can_display_href() -> bool:
