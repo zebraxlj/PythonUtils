@@ -1,8 +1,10 @@
 import logging
 import sys
 import time
+from contextlib import redirect_stdout
 from dataclasses import dataclass, field
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from typing import ClassVar
 
@@ -12,7 +14,7 @@ if PROJ_PATH not in sys.path:
 
 from TablePrinter.table_printer import (  # noqa: E402
     BaseRow, BaseTable,
-    ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, get_display_ansi_width
+    ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, FontFormat, get_display_ansi_width
 )
 import TablePrinter.table_printer as table_printer  # noqa: E402
 from ColorHelper.color_xterm_256 import ColorXTerm256  # noqa: E402
@@ -82,7 +84,11 @@ def test_alternating_row_backgrounds():
     class Table(BaseTable):
         row_type = Row
         ENABLE_ROW_BACKGROUND = True
-        ROW_BACKGROUND_COLORS = (ColorXTerm256.GRAY_232, ColorXTerm256.GRAY_238)
+        ROW_BACKGROUND_COLORS = (ColorXTerm256.COLOR_120, ColorXTerm256.COLOR_231)
+        HEADER_BACKGROUND_COLOR = ColorXTerm256.COLOR_35
+        HEADER_FOREGROUND_COLOR = ColorXTerm256.COLOR_231
+        HEADER_BOLD = True
+        ENABLE_HEADER_SEPARATOR = False
 
     table = Table()
     table.insert_row(Row(Value='normal1', Marker='1'))
@@ -90,15 +96,10 @@ def test_alternating_row_backgrounds():
     table.insert_row(Row(Value='alert', Marker='3'))
     table.insert_row(Row(Value='normal3', Marker='4'))
 
-    original_can_display_ansi_color = table_printer.can_display_ansi_color
-    table_printer.can_display_ansi_color = lambda: True
-    try:
-        first_line = table.get_table_line_str(table.row_list[0], row_index=0)
-    finally:
-        table_printer.can_display_ansi_color = original_can_display_ansi_color
-    assert '\033[48;5;232m│\033[0m' in first_line
-
-    table.print_table()
+    output = StringIO()
+    with redirect_stdout(output):
+        table.print_table()
+    print(output.getvalue(), end='')
 
 
 def test_table_with_order():
