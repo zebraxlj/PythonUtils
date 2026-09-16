@@ -14,6 +14,7 @@ from TablePrinter.table_printer import (  # noqa: E402
     BaseRow, BaseTable,
     ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, get_display_ansi_width
 )
+import TablePrinter.table_printer as table_printer  # noqa: E402
 from ColorHelper.color_xterm_256 import ColorXTerm256  # noqa: E402
 from TablePrinter.table_printer_consts import BoxDrawingChar  # noqa: E402
 
@@ -73,6 +74,7 @@ def test_alternating_row_backgrounds():
     @dataclass
     class Row(BaseRow):
         Value: str = ''
+        Marker: str = ''
         __Value_config: ClassVar[ColumnConfig] = ColumnConfig(
             conditional_format=CondFmtExactMatch(match_target='alert')
         )
@@ -83,10 +85,19 @@ def test_alternating_row_backgrounds():
         ROW_BACKGROUND_COLORS = (ColorXTerm256.GRAY_232, ColorXTerm256.GRAY_238)
 
     table = Table()
-    table.insert_row(Row(Value='normal1'))
-    table.insert_row(Row(Value='normal2'))
-    table.insert_row(Row(Value='alert'))
-    table.insert_row(Row(Value='normal3'))
+    table.insert_row(Row(Value='normal1', Marker='1'))
+    table.insert_row(Row(Value='normal2', Marker='2'))
+    table.insert_row(Row(Value='alert', Marker='3'))
+    table.insert_row(Row(Value='normal3', Marker='4'))
+
+    original_can_display_ansi_color = table_printer.can_display_ansi_color
+    table_printer.can_display_ansi_color = lambda: True
+    try:
+        first_line = table.get_table_line_str(table.row_list[0], row_index=0)
+    finally:
+        table_printer.can_display_ansi_color = original_can_display_ansi_color
+    assert '\033[48;5;232m│\033[0m' in first_line
+
     table.print_table()
 
 
