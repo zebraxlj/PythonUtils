@@ -615,7 +615,11 @@ class BaseTable(Generic[TBaseRow]):
                 text_disp = FontFormat(BgColor=row_background_color, FgColor=None).apply_format(text_disp)
             token_dict[attr_name] = text_disp
         tokens = [token_dict[attr_name] for attr_name in col_order]
-        return self.CHAR_COL_SEP.join(tokens)
+        col_sep = self.CHAR_COL_SEP
+        if row_background_color is not None:
+            # Keep column dividers in the same band as their row.
+            col_sep = FontFormat(BgColor=row_background_color, FgColor=None).apply_format(col_sep)
+        return col_sep.join(tokens)
 
     def _get_row_background_color(
             self, row_index: int, can_disp_color: bool
