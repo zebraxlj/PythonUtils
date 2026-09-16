@@ -35,9 +35,12 @@ class ColumnAlignment(str, Enum):
 class FontFormat:
     BgColor: Optional[ColorXTerm256] = ColorXTerm256.WHITE
     FgColor: Optional[ColorXTerm256] = ColorXTerm256.BLACK
+    Bold: bool = False
 
     def apply_format(self, text: str) -> str:
         codes = []
+        if self.Bold:
+            codes.append('1')
         if isinstance(self.BgColor, ColorXTerm256):
             codes.append(f'48;5;{self.BgColor}')
         if isinstance(self.FgColor, ColorXTerm256):
@@ -426,7 +429,15 @@ class BaseTable(Generic[TBaseRow]):
     CHAR_ROW_SEP: str = BoxDrawingChar.LIGHT_HORIZONTAL
     CHAR_HEADER_H_SEP: str = BoxDrawingChar.DOUBLE_HORIZONTAL
     CHAR_HEADER_V_SEP: str = BoxDrawingChar.VERTICAL_SINGLE_AND_HORIZONTAL_DOUBLE
+    # Set to False in a table subclass to omit the line below the header.
+    ENABLE_HEADER_SEPARATOR: bool = True
     ENABLE_COLOR: bool = True
+    # Set a color in a table subclass to draw the header as a continuous color band.
+    HEADER_BACKGROUND_COLOR: Optional[ColorXTerm256] = None
+    # Set a color in a table subclass to color header text and column dividers.
+    HEADER_FOREGROUND_COLOR: Optional[ColorXTerm256] = None
+    # Headers are bold by default when ANSI color output is available.
+    HEADER_BOLD: bool = False
     # Enable alternating row backgrounds by setting this to True in a table subclass.
     # The default keeps existing table output unchanged.
     ENABLE_ROW_BACKGROUND: bool = False
@@ -530,11 +541,30 @@ class BaseTable(Generic[TBaseRow]):
         col_align = [self.row_type.get_config(attr).align for attr in col_order]
         col_data = [self.row_type.get_col_header_map()[attr] for attr in col_order]
         col_disp_len = [self.__COL_MAX_DISP_LEN[attr] for attr in col_order]
-        ret = self.CHAR_COL_SEP.join(
+        tokens = [
             f' {col_val:{align}{width-get_display_ansi_width(str(col_val))+len(str(col_val))}} '
             for col_val, align, width in zip(col_data, col_align, col_disp_len)
-        )
-        return ret
+        ]
+        if self.ENABLE_COLOR and can_display_ansi_color() and (
+                self.HEADER_BACKGROUND_COLOR is not None
+                or self.HEADER_FOREGROUND_COLOR is not None
+                or self.HEADER_BOLD
+                ):
+            header_format = FontFormat(
+                BgColor=self.HEADER_BACKGROUND_COLOR,
+                FgColor=self.HEADER_FOREGROUND_COLOR,
+                Bold=self.HEADER_BOLD,
+            )
+            tokens = [header_format.apply_format(token) for token in tokens]
+            if self.HEADER_BACKGROUND_COLOR is not None:
+                # Keep the color band continuous without changing divider foreground color.
+                col_sep = FontFormat(BgColor=self.HEADER_BACKGROUND_COLOR, FgColor=None).apply_format(
+                    self.CHAR_COL_SEP
+                )
+            else:
+                col_sep = self.CHAR_COL_SEP
+            return col_sep.join(tokens)
+        return self.CHAR_COL_SEP.join(tokens)
 
     def get_table_header_sep_str(self, sep_h: str = None, sep_v: str = None) -> str:
         """ generate the header separator line for the output table
@@ -645,7 +675,9 @@ class BaseTable(Generic[TBaseRow]):
             ascending (List[bool], optional): see ascending in get_sorted_rows
         """
         logger.debug(f'data_len:{len(self.row_list)}')
-        output_lines: List[str] = [self.get_table_header_str(), self.get_table_header_sep_str()]
+        output_lines: List[str] = [self.get_table_header_str()]
+        if self.ENABLE_HEADER_SEPARATOR:
+            output_lines.append(self.get_table_header_sep_str())
 
         data_to_show = self.row_list if not order_by else self.get_sorted_rows(order_by, ascending)
 
