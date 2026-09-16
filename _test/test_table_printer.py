@@ -14,6 +14,7 @@ from TablePrinter.table_printer import (  # noqa: E402
     BaseRow, BaseTable,
     ColumnAlignment, ColumnConfig, CondFmtContain, CondFmtExactMatch, get_display_ansi_width
 )
+from ColorHelper.color_xterm_256 import ColorXTerm256  # noqa: E402
 from TablePrinter.table_printer_consts import BoxDrawingChar  # noqa: E402
 
 
@@ -64,6 +65,29 @@ class RowEmployeeExample(BaseRow):
 
 class TableEmployeeExample(BaseTable):
     row_type = RowEmployeeExample
+
+
+def test_alternating_row_backgrounds():
+    print(test_alternating_row_backgrounds.__name__, '=' * 50)
+    """Print row backgrounds and verify they do not override match highlighting."""
+    @dataclass
+    class Row(BaseRow):
+        Value: str = ''
+        __Value_config: ClassVar[ColumnConfig] = ColumnConfig(
+            conditional_format=CondFmtExactMatch(match_target='alert')
+        )
+
+    class Table(BaseTable):
+        row_type = Row
+        ENABLE_ROW_BACKGROUND = True
+        ROW_BACKGROUND_COLORS = (ColorXTerm256.GRAY_232, ColorXTerm256.GRAY_238)
+
+    table = Table()
+    table.insert_row(Row(Value='normal1'))
+    table.insert_row(Row(Value='normal2'))
+    table.insert_row(Row(Value='alert'))
+    table.insert_row(Row(Value='normal3'))
+    table.print_table()
 
 
 def test_table_with_order():
@@ -298,6 +322,7 @@ def test_table_printer():
         table.print_table()
 
     test_table_with_order()
+    test_alternating_row_backgrounds()
     test_table_with_customized_row_separator()
     test_table_with_conditional_formatting()
     test_table_with_href()
