@@ -222,36 +222,32 @@ def test_table_with_conditional_formatting():
     table.print_table()
 
 
-def test_override_logger_handler():
-    """演示如何覆写 TablePrinter 的默认 logger handler"""
-    print('test override logger handler', '=' * 50)
+def test_configure_logger():
+    """演示调用方为 TablePrinter 显式配置日志。"""
+    print('test configure logger handler', '=' * 50)
 
-    # 获取 TablePrinter 的 logger
+    # 库不配置 handler 或日志级别；调用方按自身格式和输出目标显式配置。
     tp_logger = logging.getLogger('TablePrinter.table_printer')
-
-    # 移除默认 handler
-    for h in tp_logger.handlers[:]:
-        tp_logger.removeHandler(h)
-
-    # 添加自定义 handler 和 formatter
     custom_handler = logging.StreamHandler()
     custom_handler.setFormatter(logging.Formatter(
-        '[%(levelname)s] %(funcName)s - %(message)s'  # 自定义格式：去掉时间戳，只保留级别和方法名
+        '[%(levelname)s] %(funcName)s - %(message)s'
     ))
-    tp_logger.addHandler(custom_handler)
 
-    # 切换到 DEBUG 级别以查看调试日志
+    # 保存并完整还原先前配置，避免测试影响其他调用方。
     original_level = tp_logger.level
-    tp_logger.setLevel(logging.DEBUG)
+    original_propagate = tp_logger.propagate
+    try:
+        tp_logger.setLevel(logging.DEBUG)
+        tp_logger.propagate = False  # 防止也由 root logger 再输出一次
+        tp_logger.addHandler(custom_handler)
 
-    # 执行一些操作，触发 debug 日志
-    table = TableExample()
-    table.insert_row(RowExample(ColInt=1, ColStr='logger test'))
-    table.print_table()
-
-    # 还原 logger 配置
-    tp_logger.setLevel(original_level)
-    tp_logger.removeHandler(custom_handler)
+        table = TableExample()
+        table.insert_row(RowExample(ColInt=1, ColStr='logger test'))
+        table.print_table()
+    finally:
+        tp_logger.removeHandler(custom_handler)
+        tp_logger.setLevel(original_level)
+        tp_logger.propagate = original_propagate
 
 
 def test_table_with_href():
@@ -338,7 +334,7 @@ def test_table_printer():
     test_table_with_customized_row_separator()
     test_table_with_conditional_formatting()
     test_table_with_href()
-    test_override_logger_handler()
+    test_configure_logger()
 
 
 if __name__ == '__main__':

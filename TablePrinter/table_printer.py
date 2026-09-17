@@ -12,14 +12,6 @@ from ColorHelper.color_xterm_256 import ColorXTerm256
 from TablePrinter.table_printer_consts import BoxDrawingChar
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-if not logger.handlers:
-    _handler = logging.StreamHandler()
-    _handler.setFormatter(logging.Formatter(
-        '%(asctime)s [%(levelname)s] %(name)s.%(funcName)s: %(message)s'
-    ))
-    logger.addHandler(_handler)
 
 
 class ColumnAlignment(str, Enum):
