@@ -173,6 +173,7 @@ class TerminalUpdater(metaclass=SingletonMeta):
             TerminalController.CursorMovePrevBegin(line_rm_cnt)
 
         sys.stdout.flush()
-        self.__prev_lines = lines
-        if diff_cnt > 0:
-            self.__prev_lines = deepcopy(lines)
+        # Always keep a deep copy: storing the caller's list object directly
+        # means an in-place mutation made between two update() calls makes the
+        # two lists compare equal, so the changed line is never redrawn.
+        self.__prev_lines = deepcopy(lines)

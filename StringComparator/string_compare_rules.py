@@ -21,49 +21,26 @@ class StringCompareRuleSimple:
         if isinstance(self.logic, str):
             self.logic = BinaryLogicEnum(self.logic)
 
+    def _keyword_matches(self, line: str, keyword: str) -> bool:
+        """Test a single keyword against the line using this rule's compare method."""
+        if self.method == CompareMethodEnum.CONTAIN:
+            return keyword in line
+        if self.method == CompareMethodEnum.START_WITH:
+            return line.startswith(keyword)
+        if self.method == CompareMethodEnum.END_WITH:
+            return line.endswith(keyword)
+        if self.method == CompareMethodEnum.REGEX:
+            return re.search(keyword, line) is not None
+        raise NotImplementedError(f'compare_method={self.method} is not supported')
+
     def matches(self, line: str) -> bool:
         if not line:
             raise ValueError('line cannot be empty')
 
-        if self.method == CompareMethodEnum.CONTAIN:
-            if not self.logic:
-                return self.keywords[0] in line
-            elif self.logic == BinaryLogicEnum.AND:
-                return all(keyword in line for keyword in self.keywords)
-            elif self.logic == BinaryLogicEnum.OR:
-                return any(keyword in line for keyword in self.keywords)
-            else:
-                raise NotImplementedError(f'compare_method={self.method} compare_rule={self.logic} is not supported')
-
-        elif self.method == CompareMethodEnum.START_WITH:
-            if not self.logic:
-                return line.startswith(self.keywords[0])
-            elif self.logic == BinaryLogicEnum.AND:
-                return all(line.startswith(keyword) for keyword in self.keywords)
-            elif self.logic == BinaryLogicEnum.OR:
-                return any(line.startswith(keyword) for keyword in self.keywords)
-            else:
-                raise NotImplementedError(f'compare_method={self.method} compare_rule={self.logic} is not supported')
-
-        elif self.method == CompareMethodEnum.END_WITH:
-            if not self.logic:
-                return line.endswith(self.keywords[0])
-            elif self.logic == BinaryLogicEnum.AND:
-                return all(line.endswith(keyword) for keyword in self.keywords)
-            elif self.logic == BinaryLogicEnum.OR:
-                return any(line.endswith(keyword) for keyword in self.keywords)
-            else:
-                raise NotImplementedError(f'compare_method={self.method} compare_rule={self.logic} is not supported')
-
-        elif self.method == CompareMethodEnum.REGEX:
-            if not self.logic:
-                return bool(re.search(self.keywords[0], line))
-            elif self.logic == BinaryLogicEnum.AND:
-                return all(re.search(keyword, line) for keyword in self.keywords)
-            elif self.logic == BinaryLogicEnum.OR:
-                return any(re.search(keyword, line) for keyword in self.keywords)
-            else:
-                raise NotImplementedError(f'compare_method={self.method} compare_rule={self.logic} is not supported')
-
-        else:
-            raise NotImplementedError(f'compare_method={self.method} is not supported')
+        if not self.logic:
+            return self._keyword_matches(line, self.keywords[0])
+        if self.logic == BinaryLogicEnum.AND:
+            return all(self._keyword_matches(line, keyword) for keyword in self.keywords)
+        if self.logic == BinaryLogicEnum.OR:
+            return any(self._keyword_matches(line, keyword) for keyword in self.keywords)
+        raise NotImplementedError(f'compare_method={self.method} compare_rule={self.logic} is not supported')

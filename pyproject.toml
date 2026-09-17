@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-utils"
+version = "0.1.0"
+description = "A collection of small, dependency-free Python utilities: xterm-256 colors, rule-based string comparison, system helpers (clipboard, terminal updates), and box-drawing table printing."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["terminal", "ansi", "table", "clipboard", "string-compare", "color"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Terminals",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.5",
+]
+
+[tool.setuptools]
+# Top-level subfolders are importable namespace packages (no __init__.py needed).
+packages = [
+    "ColorHelper",
+    "StringComparator",
+    "SystemTools",
+    "TablePrinter",
+]
+
+[tool.setuptools.package-data]
+StringComparator = ["data/*.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# Bug-catching lints only: undefined names (F), syntax errors (E9).
+select = ["F", "E9"]

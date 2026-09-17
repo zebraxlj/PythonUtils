@@ -636,7 +636,10 @@ class BaseTable(Generic[TBaseRow]):
             # 1 wide char takes 2 ansi space, and the width is in ansi space, so padding space need to be recalculated
             width = width-get_display_ansi_width(str(text_disp))+len(str(text_disp))
             text_disp = f' {str(text_disp):{config.align}{width}} '
-            text_disp = text_disp.replace(text_disp_old, text_print)
+            if text_disp_old:
+                # Empty display text would make str.replace insert text_print
+                # between every character and corrupt the padding.
+                text_disp = text_disp.replace(text_disp_old, text_print)
 
             if need_conf_fmt:
                 text_disp = config.conditional_format.apply_format(text_disp)
@@ -692,17 +695,22 @@ _ansi_color_supported: Optional[bool] = None
 
 
 def can_display_ansi_color() -> bool:
-    """ 检查当前终端是否支持 ANSI 颜色转义序列。
+    """Check whether the current terminal supports ANSI color escape sequences.
 
-    Windows 上通过 ctypes 检测 ENABLE_VIRTUAL_TERMINAL_PROCESSING 标志，
-    若未启用则尝试主动启用。检测结果会被缓存，仅在首次调用时执行。
+    Windows detects (and enables) the ENABLE_VIRTUAL_TERMINAL_PROCESSING flag
+    via ctypes. On POSIX, ANSI color is assumed available. The result is
+    cached after the first call.
 
-    Returns:
-        bool: True if ANSI color is supported
+    Returns False when stdout is not an interactive terminal (e.g. piped or
+    redirected to a file), so escape sequences never corrupt redirected output.
     """
     global _ansi_color_supported
     if _ansi_color_supported is not None:
         return _ansi_color_supported
+
+    if not _is_stdout_tty():
+        _ansi_color_supported = False
+        return False
 
     if sys.platform == 'win32':
         _ansi_color_supported = _win32_enable_vt_processing()
@@ -712,6 +720,14 @@ def can_display_ansi_color() -> bool:
         raise NotImplementedError("Unsupported platform")
 
     return _ansi_color_supported
+
+
+def _is_stdout_tty() -> bool:
+    """Return True when sys.stdout is an interactive terminal."""
+    try:
+        return bool(sys.stdout.isatty())
+    except (AttributeError, OSError):
+        return False
 
 
 def _win32_enable_vt_processing() -> bool:
@@ -754,10 +770,13 @@ def _win32_enable_vt_processing() -> bool:
 
 
 def can_display_href() -> bool:
-    """ check if the current environment can display href
-    Returns:
-        bool: True if href is supported
+    """Check if the current environment can display terminal hyperlinks (OSC 8).
+
+    Terminal hyperlinks are only rendered by interactive terminals; piped or
+    redirected stdout must not receive the escape sequences.
     """
+    if not _is_stdout_tty():
+        return False
     if sys.platform == 'win32':
         if 'WT_SESSION' in os.environ:
             return True
