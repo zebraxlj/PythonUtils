@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from io import StringIO
 from pathlib import Path
-from typing import ClassVar
+from typing import ClassVar, Optional
 
 PROJ_PATH = str(Path(__file__).resolve().parent.parent)
 if PROJ_PATH not in sys.path:
@@ -102,6 +102,28 @@ def test_alternating_row_backgrounds():
     print(output.getvalue(), end='')
 
 
+def test_default_column_config_has_no_mutable_conditional_format():
+    assert ColumnConfig().conditional_format is None
+
+
+def test_href_replaces_only_the_cell_content(monkeypatch):
+    monkeypatch.setattr(table_printer, 'can_display_href', lambda: True)
+
+    @dataclass
+    class Row(BaseRow):
+        Value: str = ' '
+        Value_href: str = 'https://example.test'
+
+    class Table(BaseTable):
+        row_type = Row
+
+    table = Table()
+    table.insert_row(Row())
+    rendered = table.get_table_line_str(table.row_list[0])
+
+    assert rendered.count('\x1b]8;;https://example.test\x1b\\') == 1
+
+
 def test_table_with_order():
     print(test_table_with_order.__name__, '=' * 50)
     table = TableEmployeeExample()
@@ -162,32 +184,31 @@ def test_table_with_customized_row_separator():
     for office_row in offices:
         table.insert_row(office_row)
 
-    # prepare output: get header line and header separator line
-    lines = [table.get_table_header_str(), table.get_table_header_sep_str()]
-
-    # prepare output: sort the rows and add customized separator for printing the table
-    rows_sorted = table.get_sorted_rows(order_by=['BuildingId', 'Floor'], ascending=[True, False])
-
-    # prepare output: insert row line and row separator line
-    row_prev: RowOfficeExample = None
-    for row in rows_sorted:
-        # If you don't know what you are doing, it's recommended add the separator regarding to the sorting order.
-        # Otherwise, you may see same column value being separated into different chunks and the output looks weird.
-        row: RowOfficeExample
+    def add_group_separator(
+            row_prev: Optional[RowOfficeExample], row: RowOfficeExample, display_line_index: int
+            ) -> Optional[str]:
+        """Insert a separator while TablePrinter owns the display-line index."""
         if row_prev is not None and row_prev.BuildingId != row.BuildingId:
-            lines.append(table.get_table_line_sep_str(
-                sep_h=BoxDrawingChar.LIGHT_HORIZONTAL, sep_v=BoxDrawingChar.LIGHT_VERTICAL_AND_HORIZONTAL
-            ))
-        elif row_prev is not None and row_prev.Floor != row.Floor:
-            lines.append(table.get_table_line_sep_str(
-                sep_h=BoxDrawingChar.LIGHT_HORIZONTAL, sep_v=BoxDrawingChar.LIGHT_VERTICAL, dense=False
-            ))
-        lines.append(table.get_table_line_str(row))
-        row_prev = row
+            return table.get_table_line_sep_str(
+                sep_h=BoxDrawingChar.LIGHT_HORIZONTAL,
+                sep_v=BoxDrawingChar.LIGHT_VERTICAL_AND_HORIZONTAL,
+                row_index=display_line_index,
+            )
+        if row_prev is not None and row_prev.Floor != row.Floor:
+            return table.get_table_line_sep_str(
+                sep_h=BoxDrawingChar.LIGHT_HORIZONTAL,
+                sep_v=BoxDrawingChar.LIGHT_VERTICAL,
+                dense=False,
+                row_index=display_line_index,
+            )
+        return None
 
-    # print output
-    for line in lines:
-        print(line)
+    # The hook may also return multiple lines, replace a row, or return None to skip it.
+    print(table.to_table_str(
+        order_by=['BuildingId', 'Floor'],
+        ascending=[True, False],
+        before_row=add_group_separator,
+    ))
 
 
 def test_table_with_conditional_formatting():

@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, Iterator, List, Optional, Tuple, Type, TypeVar
 
 from ColorHelper.color_xterm_256 import ColorXTerm256
 from TablePrinter.table_printer_consts import BoxDrawingChar
@@ -55,9 +55,6 @@ class ConditionalFormat:
         raise NotImplementedError
 
 
-COND_FMT_DEFAULT = ConditionalFormat()
-
-
 @dataclass
 class CondFmtContain(ConditionalFormat):
     contain_target: Any = None
@@ -102,7 +99,7 @@ class ColumnConfig:
 
     align: Optional[ColumnAlignment] = ColumnAlignment.CENTER
 
-    conditional_format: ConditionalFormat = field(default_factory=lambda: COND_FMT_DEFAULT)
+    conditional_format: Optional[ConditionalFormat] = None
 
     format: Optional[str] = None
 
@@ -412,6 +409,7 @@ class BaseRow:
 
 
 TBaseRow = TypeVar('TBaseRow', bound=BaseRow)
+TableLineFactory = Callable[[Optional[TBaseRow], TBaseRow, int], Optional[str]]
 
 
 class BaseTable(Generic[TBaseRow]):
@@ -570,7 +568,9 @@ class BaseTable(Generic[TBaseRow]):
         sep_v = sep_v if sep_v else self.CHAR_HEADER_V_SEP
         return self.get_table_line_sep_str(sep_h=sep_h, sep_v=sep_v)
 
-    def get_table_line_sep_str(self, sep_h: str = None, sep_v: str = None, dense: bool = True) -> str:
+    def get_table_line_sep_str(
+            self, sep_h: str = None, sep_v: str = None, dense: bool = True, row_index: Optional[int] = None
+            ) -> str:
         """ generate row separator line for the output table
         Args:
             sep_h (str, optional): horrizontal separater. Defaults to None.
@@ -579,6 +579,8 @@ class BaseTable(Generic[TBaseRow]):
                 When True there'll be no space between row sep_h and column sep_v Ex. ----|----.
                 When False there'll be a space between row sep_h and column sep_v Ex. --- | ---.
                 Defaults to True.
+            row_index (int, optional): Display-line index used for alternating
+                row background. ``None`` leaves the separator unstyled.
         Returns:
             str: row separator line
         """
@@ -594,6 +596,12 @@ class BaseTable(Generic[TBaseRow]):
             f'{col_pad}{col_val:{align}{width-get_display_ansi_width(str(col_val))+len(str(col_val))}}{col_pad}'
             for col_val, align, width in zip(col_data, col_align, col_disp_len)
         )
+        if row_index is not None:
+            row_background_color = self._get_row_background_color(
+                row_index, self.ENABLE_COLOR and can_display_ansi_color()
+            )
+            if row_background_color is not None:
+                ret = FontFormat(BgColor=row_background_color, FgColor=None).apply_format(ret)
         return ret
 
     def get_table_line_str(self, row_data: TBaseRow, row_index: int = 0) -> str:
@@ -612,31 +620,34 @@ class BaseTable(Generic[TBaseRow]):
 
         can_disp_color = self.ENABLE_COLOR and can_display_ansi_color()
         row_background_color = self._get_row_background_color(row_index, can_disp_color)
-        token_dict = {}
+        tokens = []
         for attr_name in col_order:
             text_disp, text_print = col_data_disp[attr_name], col_data_true[attr_name]
             config: ColumnConfig = col_config[attr_name]
-            width = col_disp_len[attr_name]
+            cell_width = col_disp_len[attr_name]
+            conditional_format = config.conditional_format
             need_conf_fmt = (
                 can_disp_color
-                and config.conditional_format is not None
-                and config.conditional_format != COND_FMT_DEFAULT
-                and config.conditional_format.is_condition_match(text_disp)
+                and conditional_format is not None
+                and conditional_format.is_condition_match(text_disp)
             )
 
-            text_disp_old = text_disp
-            # 1 wide char takes 2 ansi space, and the width is in ansi space, so padding space need to be recalculated
-            width = width-get_display_ansi_width(str(text_disp))+len(str(text_disp))
-            text_disp = f' {str(text_disp):{config.align}{width}} '
-            text_disp = text_disp.replace(text_disp_old, text_print)
+            padding = cell_width - get_display_ansi_width(text_disp)
+            if config.align == ColumnAlignment.LEFT:
+                left_padding, right_padding = 0, padding
+            elif config.align == ColumnAlignment.RIGHT:
+                left_padding, right_padding = padding, 0
+            else:
+                left_padding = padding // 2
+                right_padding = padding - left_padding
+            text_disp = f" {' ' * left_padding}{text_print}{' ' * right_padding} "
 
             if need_conf_fmt:
-                text_disp = config.conditional_format.apply_format(text_disp)
+                text_disp = conditional_format.apply_format(text_disp)
             elif row_background_color is not None:
                 # Conditional formatting takes precedence so alert colors stay visible.
                 text_disp = FontFormat(BgColor=row_background_color, FgColor=None).apply_format(text_disp)
-            token_dict[attr_name] = text_disp
-        tokens = [token_dict[attr_name] for attr_name in col_order]
+            tokens.append(text_disp)
         col_sep = self.CHAR_COL_SEP
         if row_background_color is not None:
             # Keep column dividers in the same band as their row.
@@ -660,6 +671,45 @@ class BaseTable(Generic[TBaseRow]):
         self.row_list.append(row_data)
         self._update_col_max_disp_len(row_data=row_data)
 
+    def iter_table_lines(
+            self,
+            order_by: Optional[List[str]] = None,
+            ascending: Optional[List[bool]] = None,
+            before_row: Optional[TableLineFactory] = None,
+            ) -> Iterator[str]:
+        """Yield table lines, optionally inserting one line before each data row.
+
+        ``before_row(previous, current, display_line_index)`` may return a string,
+        or ``None`` to insert group separators or labels. The display index advances
+        for every yielded line, so alternating row backgrounds stay aligned.
+        """
+        yield self.get_table_header_str()
+        if self.ENABLE_HEADER_SEPARATOR:
+            yield self.get_table_header_sep_str()
+
+        data_to_show = self.row_list if not order_by else self.get_sorted_rows(order_by, ascending)
+        previous_row: Optional[TBaseRow] = None
+        display_line_index = 0
+        for row_data in data_to_show:
+            if before_row is not None:
+                line = before_row(previous_row, row_data, display_line_index)
+                if line is not None:
+                    yield line
+                    display_line_index += 1
+
+            yield self.get_table_line_str(row_data, row_index=display_line_index)
+            display_line_index += 1
+            previous_row = row_data
+
+    def to_table_str(
+            self,
+            order_by: Optional[List[str]] = None,
+            ascending: Optional[List[bool]] = None,
+            before_row: Optional[TableLineFactory] = None,
+            ) -> str:
+        """Render the table to a string; see :meth:`iter_table_lines` for hooks."""
+        return self.CHAR_LN.join(self.iter_table_lines(order_by, ascending, before_row))
+
     def print_table(self, order_by: List[str] = None, ascending: List[bool] = None):
         """print the table
         Args:
@@ -667,16 +717,7 @@ class BaseTable(Generic[TBaseRow]):
             ascending (List[bool], optional): see ascending in get_sorted_rows
         """
         logger.debug(f'data_len:{len(self.row_list)}')
-        output_lines: List[str] = [self.get_table_header_str()]
-        if self.ENABLE_HEADER_SEPARATOR:
-            output_lines.append(self.get_table_header_sep_str())
-
-        data_to_show = self.row_list if not order_by else self.get_sorted_rows(order_by, ascending)
-
-        for row_index, row_data in enumerate(data_to_show):
-            output_lines.append(self.get_table_line_str(row_data, row_index=row_index))
-
-        output_str = self.CHAR_LN.join(output_lines)
+        output_str = self.to_table_str(order_by, ascending)
         print(output_str, '\n', sep='')
 
 
