@@ -1,5 +1,28 @@
 from enum import IntEnum
 
+# Standard RGB values of the 16 basic ANSI colors (index 0-15).
+BASIC_RGB: dict = {
+    0: (0, 0, 0),        # BLACK
+    1: (128, 0, 0),      # RED
+    2: (0, 128, 0),      # GREEN
+    3: (128, 128, 0),    # YELLOW
+    4: (0, 0, 128),      # BLUE
+    5: (128, 0, 128),    # MAGENTA
+    6: (0, 128, 128),    # CYAN
+    7: (192, 192, 192),  # WHITE
+    8: (128, 128, 128),  # BRIGHT_BLACK
+    9: (255, 0, 0),      # BRIGHT_RED
+    10: (0, 255, 0),     # BRIGHT_GREEN
+    11: (255, 255, 0),   # BRIGHT_YELLOW
+    12: (0, 0, 255),     # BRIGHT_BLUE
+    13: (255, 0, 255),   # BRIGHT_MAGENTA
+    14: (0, 255, 255),   # BRIGHT_CYAN
+    15: (255, 255, 255), # BRIGHT_WHITE
+}
+
+# The six levels the color cube (index 16-231) interpolates through.
+CUBE_LEVELS: tuple = (0, 95, 135, 175, 215, 255)
+
 
 class ColorXTerm256(IntEnum):
     # Basic Colors (0-15)
@@ -263,3 +286,52 @@ class ColorXTerm256(IntEnum):
     GRAY_253 = 253
     GRAY_254 = 254
     GRAY_255 = 255
+
+    # Standard RGB values of the 16 basic ANSI colors (index 0-15).
+    # (module-level constant — an assignment inside an IntEnum declares a member)
+    # The six levels the color cube (index 16-231) interpolates through.
+    def to_rgb(self) -> tuple:
+        """Return the (red, green, blue) 0-255 triple this color represents."""
+        if self.value <= 15:
+            return BASIC_RGB[self.value]
+        if self.value <= 231:
+            cube_index = self.value - 16
+            r, g, b = cube_index // 36, (cube_index // 6) % 6, cube_index % 6
+            return tuple(CUBE_LEVELS[channel] for channel in (r, g, b))
+        gray_level = 8 + (self.value - 232) * 10
+        return (gray_level, gray_level, gray_level)
+
+    @classmethod
+    def from_rgb(cls, red: int, green: int, blue: int) -> 'ColorXTerm256':
+        """Return the closest xterm-256 color for an (red, green, blue) 0-255 triple.
+
+        Searches all 256 palette entries and picks the smallest squared
+        Euclidean distance. Ties resolve to the lower palette index.
+        """
+        for name, value in (('red', red), ('green', green), ('blue', blue)):
+            if not 0 <= value <= 255:
+                raise ValueError(f'{name} must be in range 0-255, got {value}')
+        target = (red, green, blue)
+        best_index = min(
+            range(256),
+            key=lambda i: sum((c - t) ** 2 for c, t in zip(cls(i).to_rgb(), target)),
+        )
+        return cls(best_index)
+
+    @classmethod
+    def from_hex(cls, hex_color: str) -> 'ColorXTerm256':
+        """Return the closest xterm-256 color for a hex string like '#3f51b5'.
+
+        Accepts with or without the leading '#'. Raises ValueError for
+        malformed input.
+        """
+        hex_color = hex_color.strip().lstrip('#')
+        if len(hex_color) != 6:
+            raise ValueError(
+                f'hex color must be 6 digits (e.g. "3f51b5" or "#3f51b5"), got {hex_color!r}'
+            )
+        try:
+            red, green, blue = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+        except ValueError:
+            raise ValueError(f'invalid hex color {hex_color!r}') from None
+        return cls.from_rgb(red, green, blue)
