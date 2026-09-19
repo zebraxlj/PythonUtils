@@ -7,6 +7,7 @@ from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from typing import ClassVar, Optional
+from unittest.mock import patch
 
 PROJ_PATH = str(Path(__file__).resolve().parent.parent)
 if PROJ_PATH not in sys.path:
@@ -122,6 +123,44 @@ def test_href_replaces_only_the_cell_content(monkeypatch):
     rendered = table.get_table_line_str(table.row_list[0])
 
     assert rendered.count('\x1b]8;;https://example.test\x1b\\') == 1
+
+
+def test_overline_survives_cell_formatting():
+    print(test_overline_survives_cell_formatting.__name__, '=' * 50)
+
+    @dataclass
+    class Row(BaseRow):
+        Value: str = ''
+        Marker: str = ''
+        __Value_config: ClassVar[ColumnConfig] = ColumnConfig(
+            conditional_format=CondFmtExactMatch(match_target='alert')
+        )
+
+    class Table(BaseTable):
+        row_type = Row
+
+    table = Table()
+    rows = [
+        Row(Value='normal', Marker='before'),
+        Row(Value='normal', Marker='overlined'),
+        Row(Value='alert', Marker='overlined'),
+        Row(Value='normal', Marker='after'),
+    ]
+    for row in rows:
+        table.insert_row(row)
+
+    with patch.object(table_printer, 'can_display_ansi_color', return_value=True):
+        rendered = [
+            table.get_table_line_str(rows[1], row_index=1, overline=True),
+            table.get_table_line_str(rows[2], row_index=1, overline=True),
+        ]
+        print(table.CHAR_LN.join((
+            table.get_table_header_str(),
+            table.get_table_header_sep_str(),
+            table.get_table_line_str(rows[0], row_index=0),
+            *rendered,
+            table.get_table_line_str(rows[2], row_index=2),
+        )))
 
 
 def test_table_with_order():
@@ -351,6 +390,7 @@ def test_table_printer():
         table.print_table()
 
     test_table_with_order()
+    test_overline_survives_cell_formatting()
     test_alternating_row_backgrounds()
     test_table_with_customized_row_separator()
     test_table_with_conditional_formatting()
