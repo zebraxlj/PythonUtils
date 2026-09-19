@@ -139,9 +139,14 @@ def test_overline_survives_cell_formatting():
     class Table(BaseTable):
         row_type = Row
 
+        ENABLE_ROW_BACKGROUND = True
+        ROW_BACKGROUND_COLORS = (ColorXTerm256.GRAY_235, ColorXTerm256.GRAY_239)
+
     table = Table()
     rows = [
         Row(Value='normal', Marker='before'),
+        Row(Value='normal', Marker='overlined'),
+        Row(Value='normal', Marker='overlined'),
         Row(Value='normal', Marker='overlined'),
         Row(Value='alert', Marker='overlined'),
         Row(Value='normal', Marker='after'),
@@ -152,14 +157,16 @@ def test_overline_survives_cell_formatting():
     with patch.object(table_printer, 'can_display_ansi_color', return_value=True):
         rendered = [
             table.get_table_line_str(rows[1], row_index=1, overline=True),
-            table.get_table_line_str(rows[2], row_index=1, overline=True),
+            table.get_table_line_str(rows[2], row_index=2, overline=True),
+            table.get_table_line_str(rows[3], row_index=3, overline=True),
+            table.get_table_line_str(rows[4], row_index=4, overline=True),
         ]
         print(table.CHAR_LN.join((
             table.get_table_header_str(),
             table.get_table_header_sep_str(),
             table.get_table_line_str(rows[0], row_index=0),
             *rendered,
-            table.get_table_line_str(rows[2], row_index=2),
+            table.get_table_line_str(rows[-1], row_index=len(rows)-1),
         )))
 
 
